@@ -1,18 +1,18 @@
+import { useAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useSignIn, useSignUp, useAuth } from '@clerk/clerk-expo';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -121,6 +121,10 @@ export function AuthScreen() {
   const onSubmit = async () => {
     if (!email.trim() || !password.trim()) {
       return Alert.alert('Missing fields', 'Please fill in all fields.');
+    }
+
+    if (isSignUp && password.length < 8) {
+      return Alert.alert('Weak password', 'Password must be at least 8 characters.');
     }
 
     if (isSignUp && password !== confirmPassword) {
@@ -282,6 +286,11 @@ export function AuthScreen() {
             onChangeText={setPassword}
             secureTextEntry
           />
+          {isSignUp && password.length > 0 && password.length < 8 && (
+            <Text style={[styles.passwordHint, { color: colors.warning }]}>
+              {8 - password.length} more characters needed
+            </Text>
+          )}
 
           {isSignUp && (
             <>
@@ -456,5 +465,11 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 14,
+  },
+  passwordHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 6,
+    marginLeft: 4,
   },
 });
