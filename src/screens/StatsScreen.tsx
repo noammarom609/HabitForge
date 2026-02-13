@@ -6,15 +6,15 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useInsights } from '../hooks/useConvexHabits';
 import { loadCompletions, loadHabits } from '../data/storage';
 import {
-  calculateStreak,
-  completionRate,
-  longestStreak,
-  weeklyData,
+    calculateStreak,
+    completionRate,
+    longestStreak,
+    weeklyData,
 } from '../data/streaks';
 import { Completion, Habit } from '../domain/types';
+import { useInsights } from '../hooks/useConvexHabits';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useTheme } from '../theme/ThemeContext';
 
