@@ -1,7 +1,7 @@
 {
   "name": "expo-template-default",
   "license": "0BSD",
-  "main": "expo-router/entry",
+  "main": "expo/AppEntry",
   "version": "53.0.43",
   "scripts": {
     "start": "expo start",
@@ -17,9 +17,11 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
     "@expo/vector-icons": "^14.1.0",
-    "@react-navigation/bottom-tabs": "^7.3.10",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-navigation/bottom-tabs": "^7.13.0",
     "@react-navigation/elements": "^2.3.8",
-    "@react-navigation/native": "^7.1.6",
+    "@react-navigation/native": "^7.1.28",
+    "@react-navigation/native-stack": "^7.12.0",
     "expo": "~53.0.27",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.8",
@@ -27,6 +29,7 @@
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.4.1",
     "expo-linking": "~7.1.7",
+    "expo-notifications": "~0.31.5",
     "expo-router": "~5.1.11",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
@@ -41,14 +44,15 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
+    "react-native-uuid": "^2.0.3",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
-    "typescript": "~5.8.3",
     "eslint": "^9.25.0",
-    "eslint-config-expo": "~9.2.0"
+    "eslint-config-expo": "~9.2.0",
+    "typescript": "~5.8.3"
   }
 }
