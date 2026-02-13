@@ -12,7 +12,9 @@
     "lint": "expo lint",
     "draft": "npx eas-cli@latest workflow:run create-draft.yml",
     "development-builds": "npx eas-cli@latest workflow:run create-development-builds.yml",
-    "deploy": "npx eas-cli@latest workflow:run deploy-to-production.yml"
+    "deploy": "npx eas-cli@latest workflow:run deploy-to-production.yml",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.23",
