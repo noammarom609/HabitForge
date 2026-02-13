@@ -9,7 +9,14 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "App.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "convex/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "app-example",
+    "clerk-expo"
   ]
 }

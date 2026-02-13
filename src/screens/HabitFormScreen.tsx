@@ -1,44 +1,44 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
 // Convex hooks
-import {
-  useArchiveHabit,
-  useCreateHabit,
-  useDeleteHabit,
-  useHabitWithEntries,
-  useUpdateHabit,
-} from '../hooks/useConvexHabits';
 import { Id } from '../../convex/_generated/dataModel';
+import {
+    useArchiveHabit,
+    useCreateHabit,
+    useDeleteHabit,
+    useHabitWithEntries,
+    useUpdateHabit,
+} from '../hooks/useConvexHabits';
 
 // Legacy storage
 import {
-  archiveHabit as archiveHabitLegacy,
-  deleteHabit as deleteHabitLegacy,
-  loadHabits,
-  saveHabits,
+    archiveHabit as archiveHabitLegacy,
+    deleteHabit as deleteHabitLegacy,
+    loadHabits,
+    saveHabits,
 } from '../data/storage';
 import { Habit as LegacyHabit } from '../domain/types';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import {
-  cancelHabitNotifications,
-  scheduleHabitNotifications,
+    cancelHabitNotifications,
+    scheduleHabitNotifications,
 } from '../services/notifications';
 import { HABIT_COLORS, HABIT_ICONS } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';

@@ -1,65 +1,149 @@
-# Welcome to your Expo app 👋
+# HabitForge 🔥
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A habit tracking mobile app built with Expo, React Native, Convex, and Clerk.
 
-## Get started
+## Tech Stack
 
-To start the app, in your terminal run:
+- **Frontend**: Expo (SDK 53) + React Native + TypeScript
+- **Backend**: Convex (realtime database + serverless functions)
+- **Auth**: Clerk (authentication)
+- **Navigation**: React Navigation
 
-```bash
-npm run start
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- Convex account (<https://convex.dev>)
+- Clerk account (<https://clerk.com>)
+
+### Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+# Convex
+EXPO_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
+
+# Clerk
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
-In the output, you'll find options to open the app in:
+### Clerk JWT Template Setup (Required)
 
-- [a development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [an Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [an iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. Go to [Clerk Dashboard](https://dashboard.clerk.com)
+2. Navigate to **Configure → JWT Templates**
+3. Click **New Template** and select **Convex**
+4. Keep the name as `convex` (do NOT rename)
+5. Copy the **Issuer** URL
+6. Add it to Convex environment variables:
+   - Go to [Convex Dashboard](https://dashboard.convex.dev)
+   - Select your project → **Settings → Environment Variables**
+   - Add `CLERK_JWT_ISSUER_DOMAIN` with your Clerk Issuer URL
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Workflows
-
-This project is configured to use [EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/) to automate some development and release processes. These commands are set up in [`package.json`](./package.json) and can be run using NPM scripts in your terminal.
-
-### Previews
-
-Run `npm run draft` to [publish a preview update](https://docs.expo.dev/eas/workflows/examples/publish-preview-update/) of your project, which can be viewed in Expo Go or in a development build.
-
-### Development Builds
-
-Run `npm run development-builds` to [create a development build](https://docs.expo.dev/eas/workflows/examples/create-development-builds/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/create-development-builds/#prerequisites) to ensure you have the correct emulator setup on your machine.
-
-### Production Deployments
-
-Run `npm run deploy` to [deploy to production](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/#prerequisites) to ensure you're set up to submit to the Apple and Google stores.
-
-## Hosting
-
-Expo offers hosting for websites and API functions via EAS Hosting. See the [Getting Started](https://docs.expo.dev/eas/hosting/get-started/) guide to learn more.
-
-
-## Get a fresh project
-
-When you're ready, run:
+### Installation
 
 ```bash
-npm run reset-project
+# Install dependencies
+npm install
+
+# Start Convex dev server (in a separate terminal)
+npm run convex:dev
+
+# Start Expo dev server
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Available Scripts
 
-## Learn more
+| Script | Description |
+|--------|-------------|
+| `npm start` | Start Expo dev server |
+| `npm run convex:dev` | Start Convex dev server with live sync |
+| `npm run convex:deploy` | Deploy Convex to production |
+| `npm run android` | Start on Android |
+| `npm run ios` | Start on iOS |
+| `npm run lint` | Run ESLint |
 
-To learn more about developing your project with Expo, look at the following resources:
+## Project Structure
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```
+├── App.tsx                    # Entry point with providers
+├── convex/                    # Convex backend
+│   ├── schema.ts              # Database schema
+│   ├── auth.ts                # Auth helpers
+│   ├── auth.config.ts         # Clerk JWT config
+│   └── habits.ts              # Queries and mutations
+├── src/
+│   ├── screens/               # App screens
+│   ├── hooks/
+│   │   └── useConvexHabits.ts # Convex React hooks
+│   ├── providers/
+│   │   └── ConvexClerkProvider.tsx
+│   ├── lib/
+│   │   └── convex.ts          # Convex client
+│   ├── data/                  # Legacy AsyncStorage (fallback)
+│   ├── navigation/            # React Navigation
+│   └── theme/                 # Theme and colors
+└── .env.local                 # Environment variables
+```
 
-## Join the community
+## Database Schema
 
-Join our community of developers creating universal apps.
+### Tables
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **users**: User records linked to Clerk
+- **habits**: User habits with schedule configuration
+- **habitEntries**: Daily completion records
+
+### Security
+
+All data access is protected by ownership checks:
+
+- Server functions extract `userId` from the authenticated JWT
+- No `userId` is passed from the client
+- Each query/mutation verifies the user owns the requested resource
+
+## Features
+
+- ✅ User authentication (sign up, sign in, sign out)
+- ✅ Create, edit, archive, and delete habits
+- ✅ Daily habit tracking with realtime updates
+- ✅ Dark/light theme support
+- ✅ Offline fallback to local storage (when not authenticated)
+- ✅ Streak tracking
+- ✅ Push notifications (local)
+
+## Development
+
+### Seed Sample Data (Dev Only)
+
+When authenticated and the habit list is empty, a "Seed Sample Habits" button appears in dev mode.
+
+### Auth Debug Banner
+
+In dev mode, a banner shows the current auth status:
+
+- 🟢 **Convex**: Connected to Convex with authenticated user
+- 🟡 **Local Storage**: Using local AsyncStorage (not authenticated)
+
+## Deployment
+
+### Convex Production
+
+```bash
+npm run convex:deploy
+```
+
+### Expo Production Build
+
+```bash
+npm run deploy
+```
+
+## Links
+
+- [Convex Dashboard](https://dashboard.convex.dev)
+- [Clerk Dashboard](https://dashboard.clerk.com)
+- [Expo Documentation](https://docs.expo.dev)
