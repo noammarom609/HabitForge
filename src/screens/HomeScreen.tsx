@@ -1,19 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@clerk/clerk-expo';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Convex hooks
+import {
+  getTodayDate,
+  isHabitDone,
+  useAuthDebug,
+  useSeedHabits,
+  useToday,
+  useToggleHabit,
+} from '../hooks/useConvexHabits';
+
+// Legacy storage (fallback for unauthenticated users)
 import { loadCompletions, loadHabits, toggleCompletion } from '../data/storage';
 import { calculateStreak, formatDate, getDayOfWeek } from '../data/streaks';
-import { Completion, Habit } from '../domain/types';
+import { Completion, Habit as LegacyHabit } from '../domain/types';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -23,47 +37,115 @@ export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [completions, setCompletions] = useState<Completion[]>([]);
 
-  const today = formatDate(new Date());
+  // Auth state
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
 
-  const refresh = useCallback(async () => {
-    const [allHabits, allCompletions] = await Promise.all([
-      loadHabits(),
-      loadCompletions(),
-    ]);
-    const dayOfWeek = getDayOfWeek();
-    const todayHabits = allHabits.filter(
-      (h) => !h.isArchived && h.daysOfWeek.includes(dayOfWeek),
-    );
-    setHabits(todayHabits);
-    setCompletions(allCompletions);
+  // Convex data (only for authenticated users)
+  const today = getTodayDate();
+  const { habits: convexHabits, entries, isLoading: convexLoading } = useToday(today);
+  const toggleHabitMutation = useToggleHabit();
+  const seedHabits = useSeedHabits();
+  const authDebug = useAuthDebug();
+
+  // Legacy data (for unauthenticated users)
+  const [legacyHabits, setLegacyHabits] = useState<LegacyHabit[]>([]);
+  const [legacyCompletions, setLegacyCompletions] = useState<Completion[]>([]);
+  const [legacyLoading, setLegacyLoading] = useState(false);
+
+  const legacyToday = formatDate(new Date());
+
+  // Refresh legacy data
+  const refreshLegacy = useCallback(async () => {
+    setLegacyLoading(true);
+    try {
+      const [allHabits, allCompletions] = await Promise.all([
+        loadHabits(),
+        loadCompletions(),
+      ]);
+      const dayOfWeek = getDayOfWeek();
+      const todayHabits = allHabits.filter(
+        (h) => !h.isArchived && h.daysOfWeek.includes(dayOfWeek)
+      );
+      setLegacyHabits(todayHabits);
+      setLegacyCompletions(allCompletions);
+    } finally {
+      setLegacyLoading(false);
+    }
   }, []);
 
+  // Load legacy data when screen focuses (only if not signed in)
   useFocusEffect(
     useCallback(() => {
-      refresh();
-    }, [refresh]),
+      if (authLoaded && !isSignedIn) {
+        refreshLegacy();
+      }
+    }, [authLoaded, isSignedIn, refreshLegacy])
   );
 
-  const isCompleted = (habitId: string) =>
-    completions.some(
-      (c) => c.habitId === habitId && c.date === today && c.completed,
-    );
+  // Determine which data source to use
+  const useConvex = authLoaded && isSignedIn;
+  const isLoading = !authLoaded || (useConvex ? convexLoading : legacyLoading);
 
-  const onToggle = async (habitId: string) => {
+  // Unified habit list for rendering
+  const habits = useMemo(() => {
+    if (useConvex) {
+      return convexHabits.map((h) => ({
+        id: h._id,
+        name: h.title,
+        color: h.color,
+        icon: h.icon,
+        isCompleted: isHabitDone(entries, h._id),
+        streak: 0, // TODO: Calculate from Convex entries
+        isConvex: true,
+      }));
+    } else {
+      return legacyHabits.map((h) => ({
+        id: h.id,
+        name: h.name,
+        color: h.color,
+        icon: h.icon,
+        isCompleted: legacyCompletions.some(
+          (c) => c.habitId === h.id && c.date === legacyToday && c.completed
+        ),
+        streak: calculateStreak(h, legacyCompletions),
+        isConvex: false,
+      }));
+    }
+  }, [useConvex, convexHabits, entries, legacyHabits, legacyCompletions, legacyToday]);
+
+  // Toggle handler
+  const onToggle = async (habitId: string, isConvex: boolean) => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
-      // Haptics may not be available (simulator)
+      // Haptics may not be available
     }
-    await toggleCompletion(habitId, today);
-    await refresh();
+
+    if (isConvex) {
+      await toggleHabitMutation({
+        habitId: habitId as any,
+        date: today,
+        status: 'done',
+      });
+      // Realtime update happens automatically via Convex subscription
+    } else {
+      await toggleCompletion(habitId, legacyToday);
+      await refreshLegacy();
+    }
   };
 
-  // Summary
-  const completedCount = habits.filter((h) => isCompleted(h.id)).length;
+  // Seed habits (dev only)
+  const onSeedHabits = async () => {
+    try {
+      await seedHabits({});
+    } catch (err) {
+      console.error('Seed error:', err);
+    }
+  };
+
+  // Summary calculations
+  const completedCount = habits.filter((h) => h.isCompleted).length;
   const totalCount = habits.length;
   const progress = totalCount > 0 ? completedCount / totalCount : 0;
 
@@ -74,9 +156,10 @@ export function HomeScreen() {
     day: 'numeric',
   });
 
-  const renderHabit = ({ item }: { item: Habit }) => {
-    const done = isCompleted(item.id);
-    const streak = calculateStreak(item, completions);
+  type HabitItem = (typeof habits)[number];
+
+  const renderHabit = ({ item }: { item: HabitItem }) => {
+    const done = item.isCompleted;
 
     return (
       <View
@@ -114,9 +197,9 @@ export function HomeScreen() {
             >
               {item.name}
             </Text>
-            {streak > 0 && (
+            {item.streak > 0 && (
               <Text style={[styles.streakText, { color: colors.warning }]}>
-                🔥 {streak} day{streak !== 1 ? 's' : ''}
+                🔥 {item.streak} day{item.streak !== 1 ? 's' : ''}
               </Text>
             )}
           </View>
@@ -130,13 +213,28 @@ export function HomeScreen() {
               borderColor: done ? colors.success : colors.border,
             },
           ]}
-          onPress={() => onToggle(item.id)}
+          onPress={() => onToggle(item.id, item.isConvex)}
         >
           {done && <Ionicons name="checkmark" size={18} color="#FFF" />}
         </Pressable>
       </View>
     );
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -156,11 +254,18 @@ export function HomeScreen() {
         </Pressable>
       </View>
 
+      {/* Auth status indicator (dev) */}
+      {__DEV__ && (
+        <View style={[styles.devBanner, { backgroundColor: isSignedIn ? colors.success + '20' : colors.warning + '20' }]}>
+          <Text style={[styles.devText, { color: isSignedIn ? colors.success : colors.warning }]}>
+            {isSignedIn ? `✓ Convex (${authDebug?.identity?.email || 'loading...'})` : '○ Local Storage'}
+          </Text>
+        </View>
+      )}
+
       {/* Summary card */}
       {totalCount > 0 && (
-        <View
-          style={[styles.summaryCard, { backgroundColor: colors.primaryBg }]}
-        >
+        <View style={[styles.summaryCard, { backgroundColor: colors.primaryBg }]}>
           <View style={styles.summaryTop}>
             <Text style={[styles.summaryTitle, { color: colors.text }]}>
               {completedCount === totalCount
@@ -171,14 +276,13 @@ export function HomeScreen() {
               {Math.round(progress * 100)}%
             </Text>
           </View>
-          <View
-            style={[styles.progressBg, { backgroundColor: colors.border }]}
-          >
+          <View style={[styles.progressBg, { backgroundColor: colors.border }]}>
             <View
               style={[
                 styles.progressFill,
                 {
-                  backgroundColor: completedCount === totalCount ? colors.success : colors.primary,
+                  backgroundColor:
+                    completedCount === totalCount ? colors.success : colors.primary,
                   width: `${Math.round(progress * 100)}%`,
                 },
               ]}
@@ -201,11 +305,19 @@ export function HomeScreen() {
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
               No habits for today
             </Text>
-            <Text
-              style={[styles.emptySubtitle, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Tap the + button to create your first habit
             </Text>
+
+            {/* Dev seed button */}
+            {__DEV__ && isSignedIn && (
+              <Pressable
+                style={[styles.seedBtn, { backgroundColor: colors.primary }]}
+                onPress={onSeedHabits}
+              >
+                <Text style={styles.seedBtnText}>Seed Sample Habits</Text>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -215,6 +327,7 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  centered: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -233,6 +346,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 4,
   },
+  devBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  devText: { fontSize: 12, fontWeight: '600' },
   summaryCard: {
     marginHorizontal: 20,
     padding: 16,
@@ -297,4 +418,11 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 60, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
   emptySubtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  seedBtn: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  seedBtnText: { color: '#FFF', fontWeight: '600' },
 });
