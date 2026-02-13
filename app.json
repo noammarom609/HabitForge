@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "HabitForge",
+    "slug": "HabitForge",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "habitforge",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.noammarom2.appHabitForge"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.noammarom2.appHabitForge"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c18e67e9-bf84-40c9-9751-83515abbeb9b"
+      }
+    },
+    "owner": "noammarom2",
+    "updates": {
+      "url": "https://u.expo.dev/c18e67e9-bf84-40c9-9751-83515abbeb9b"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
