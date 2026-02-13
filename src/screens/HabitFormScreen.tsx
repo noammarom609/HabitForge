@@ -1,30 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@clerk/clerk-expo';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import uuid from 'react-native-uuid';
+
+// Convex hooks
 import {
-    archiveHabit,
-    deleteHabit,
-    loadHabits,
-    saveHabits,
+  useArchiveHabit,
+  useCreateHabit,
+  useDeleteHabit,
+  useHabitWithEntries,
+  useUpdateHabit,
+} from '../hooks/useConvexHabits';
+import { Id } from '../../convex/_generated/dataModel';
+
+// Legacy storage
+import {
+  archiveHabit as archiveHabitLegacy,
+  deleteHabit as deleteHabitLegacy,
+  loadHabits,
+  saveHabits,
 } from '../data/storage';
-import { Habit } from '../domain/types';
+import { Habit as LegacyHabit } from '../domain/types';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import {
-    cancelHabitNotifications,
-    scheduleHabitNotifications,
+  cancelHabitNotifications,
+  scheduleHabitNotifications,
 } from '../services/notifications';
 import { HABIT_COLORS, HABIT_ICONS } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
@@ -47,15 +61,37 @@ export function HabitFormScreen() {
   const route = useRoute<R>();
   const { colors } = useTheme();
 
+  // Auth state
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const useConvex = authLoaded && isSignedIn;
+
   const habitId = route.params?.habitId;
   const isEditing = useMemo(() => !!habitId, [habitId]);
 
+  // Check if habitId is a Convex ID (starts with specific pattern)
+  const isConvexId = useMemo(() => {
+    return habitId && !habitId.includes('-'); // UUID has dashes, Convex IDs don't
+  }, [habitId]);
+
+  // Convex mutations
+  const createHabitMutation = useCreateHabit();
+  const updateHabitMutation = useUpdateHabit();
+  const archiveHabitMutation = useArchiveHabit();
+  const deleteHabitMutation = useDeleteHabit();
+
+  // Convex query for existing habit
+  const { habit: convexHabit, isLoading: convexLoading } = useHabitWithEntries(
+    isConvexId && isEditing ? (habitId as Id<"habits">) : null
+  );
+
+  // Form state
   const [name, setName] = useState('');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [reminderTime, setReminderTime] = useState('');
   const [color, setColor] = useState(HABIT_COLORS[0]);
   const [icon, setIcon] = useState(HABIT_ICONS[0]);
   const [loading, setLoading] = useState(false);
+  const [legacyHabitLoaded, setLegacyHabitLoaded] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -66,8 +102,19 @@ export function HabitFormScreen() {
     });
   }, [isEditing, navigation, colors]);
 
+  // Load Convex habit data
   useEffect(() => {
-    if (!habitId) return;
+    if (convexHabit && isConvexId) {
+      setName(convexHabit.title);
+      setDays(convexHabit.scheduleType === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : (convexHabit.daysOfWeek || []));
+      setColor(convexHabit.color || HABIT_COLORS[0]);
+      setIcon(convexHabit.icon || HABIT_ICONS[0]);
+    }
+  }, [convexHabit, isConvexId]);
+
+  // Load legacy habit data
+  useEffect(() => {
+    if (!habitId || isConvexId || legacyHabitLoaded) return;
     (async () => {
       const all = await loadHabits();
       const found = all.find((h) => h.id === habitId);
@@ -77,12 +124,13 @@ export function HabitFormScreen() {
       setReminderTime(found.reminderTime || '');
       setColor(found.color || HABIT_COLORS[0]);
       setIcon(found.icon || HABIT_ICONS[0]);
+      setLegacyHabitLoaded(true);
     })();
-  }, [habitId]);
+  }, [habitId, isConvexId, legacyHabitLoaded]);
 
   const toggleDay = (d: number) => {
     setDays((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
     );
   };
 
@@ -109,43 +157,70 @@ export function HabitFormScreen() {
 
     setLoading(true);
     try {
-      const all = await loadHabits();
-      let habit: Habit;
-
-      if (habitId) {
-        const existing = all.find((h) => h.id === habitId);
-        if (!existing) return;
-        habit = {
-          ...existing,
-          name: trimmed,
-          daysOfWeek: days,
-          reminderTime: reminderTime || null,
-          color,
-          icon,
-        };
-        await saveHabits(all.map((h) => (h.id === habitId ? habit : h)));
+      if (useConvex) {
+        // Convex save
+        const isDaily = days.length === 7;
+        if (isEditing && isConvexId) {
+          await updateHabitMutation({
+            habitId: habitId as Id<"habits">,
+            title: trimmed,
+            scheduleType: isDaily ? 'daily' : 'weekly',
+            daysOfWeek: isDaily ? undefined : days,
+            color,
+            icon,
+          });
+        } else {
+          await createHabitMutation({
+            title: trimmed,
+            scheduleType: isDaily ? 'daily' : 'weekly',
+            daysOfWeek: isDaily ? undefined : days,
+            color,
+            icon,
+          });
+        }
       } else {
-        habit = {
-          id: String(uuid.v4()),
-          name: trimmed,
-          daysOfWeek: days,
-          reminderTime: reminderTime || null,
-          color,
-          icon,
-          createdAt: Date.now(),
-          isArchived: false,
-        };
-        await saveHabits([habit, ...all]);
-      }
+        // Legacy save
+        const all = await loadHabits();
+        let habit: LegacyHabit;
 
-      // Schedule or cancel notifications
-      if (habit.reminderTime) {
-        await scheduleHabitNotifications(habit);
-      } else {
-        await cancelHabitNotifications(habit.id);
+        if (habitId && !isConvexId) {
+          const existing = all.find((h) => h.id === habitId);
+          if (!existing) return;
+          habit = {
+            ...existing,
+            name: trimmed,
+            daysOfWeek: days,
+            reminderTime: reminderTime || null,
+            color,
+            icon,
+          };
+          await saveHabits(all.map((h) => (h.id === habitId ? habit : h)));
+        } else {
+          habit = {
+            id: String(uuid.v4()),
+            name: trimmed,
+            daysOfWeek: days,
+            reminderTime: reminderTime || null,
+            color,
+            icon,
+            createdAt: Date.now(),
+            isArchived: false,
+          };
+          await saveHabits([habit, ...all]);
+        }
+
+        // Schedule or cancel notifications
+        if (habit.reminderTime) {
+          await scheduleHabitNotifications(habit);
+        } else {
+          await cancelHabitNotifications(habit.id);
+        }
       }
 
       navigation.goBack();
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('Error', 'Failed to save habit. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -162,12 +237,21 @@ export function HabitFormScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!habitId) return;
-            await archiveHabit(habitId);
-            await cancelHabitNotifications(habitId);
-            navigation.goBack();
+            try {
+              if (useConvex && isConvexId) {
+                await archiveHabitMutation({ habitId: habitId as Id<"habits"> });
+              } else {
+                await archiveHabitLegacy(habitId);
+                await cancelHabitNotifications(habitId);
+              }
+              navigation.goBack();
+            } catch (error) {
+              console.error('Archive error:', error);
+              Alert.alert('Error', 'Failed to archive habit.');
+            }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -182,14 +266,32 @@ export function HabitFormScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!habitId) return;
-            await deleteHabit(habitId);
-            await cancelHabitNotifications(habitId);
-            navigation.goBack();
+            try {
+              if (useConvex && isConvexId) {
+                await deleteHabitMutation({ habitId: habitId as Id<"habits"> });
+              } else {
+                await deleteHabitLegacy(habitId);
+                await cancelHabitNotifications(habitId);
+              }
+              navigation.goBack();
+            } catch (error) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', 'Failed to delete habit.');
+            }
           },
         },
-      ],
+      ]
     );
   };
+
+  // Loading state for Convex habit
+  if (isConvexId && isEditing && convexLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -255,28 +357,32 @@ export function HabitFormScreen() {
           })}
         </View>
 
-        {/* Reminder time */}
-        <Text
-          style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
-        >
-          REMINDER TIME (OPTIONAL)
-        </Text>
-        <TextInput
-          placeholder="HH:MM (e.g., 08:30)"
-          placeholderTextColor={colors.placeholder}
-          value={reminderTime}
-          onChangeText={setReminderTime}
-          keyboardType="numbers-and-punctuation"
-          maxLength={5}
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              color: colors.text,
-            },
-          ]}
-        />
+        {/* Reminder time (only for legacy habits) */}
+        {!useConvex && (
+          <>
+            <Text
+              style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
+            >
+              REMINDER TIME (OPTIONAL)
+            </Text>
+            <TextInput
+              placeholder="HH:MM (e.g., 08:30)"
+              placeholderTextColor={colors.placeholder}
+              value={reminderTime}
+              onChangeText={setReminderTime}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+            />
+          </>
+        )}
 
         {/* Color */}
         <Text
@@ -367,6 +473,11 @@ export function HabitFormScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   label: {
