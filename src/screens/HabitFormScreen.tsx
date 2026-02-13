@@ -4,41 +4,39 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-// Convex hooks
 import { Id } from '../../convex/_generated/dataModel';
 import {
-    useArchiveHabit,
-    useCreateHabit,
-    useDeleteHabit,
-    useHabitWithEntries,
-    useUpdateHabit,
+  useArchiveHabit,
+  useCreateHabit,
+  useDeleteHabit,
+  useHabitWithEntries,
+  useIdentities,
+  useUpdateHabit,
 } from '../hooks/useConvexHabits';
-
-// Legacy storage
 import {
-    archiveHabit as archiveHabitLegacy,
-    deleteHabit as deleteHabitLegacy,
-    loadHabits,
-    saveHabits,
+  archiveHabit as archiveHabitLegacy,
+  deleteHabit as deleteHabitLegacy,
+  loadHabits,
+  saveHabits,
 } from '../data/storage';
 import { Habit as LegacyHabit } from '../domain/types';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import {
-    cancelHabitNotifications,
-    scheduleHabitNotifications,
+  cancelHabitNotifications,
+  scheduleHabitNotifications,
 } from '../services/notifications';
 import { HABIT_COLORS, HABIT_ICONS } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
@@ -47,52 +45,56 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'HabitForm'>;
 type R = RouteProp<RootStackParamList, 'HabitForm'>;
 
 const ALL_DAYS = [
-  { id: 0, label: 'Sun' },
-  { id: 1, label: 'Mon' },
-  { id: 2, label: 'Tue' },
-  { id: 3, label: 'Wed' },
-  { id: 4, label: 'Thu' },
-  { id: 5, label: 'Fri' },
-  { id: 6, label: 'Sat' },
+  { id: 0, label: 'S' },
+  { id: 1, label: 'M' },
+  { id: 2, label: 'T' },
+  { id: 3, label: 'W' },
+  { id: 4, label: 'T' },
+  { id: 5, label: 'F' },
+  { id: 6, label: 'S' },
 ];
+
+const STEPS = ['What', 'When', 'How'] as const;
+type Step = (typeof STEPS)[number];
 
 export function HabitFormScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<R>();
   const { colors } = useTheme();
 
-  // Auth state
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const useConvex = authLoaded && isSignedIn;
 
   const habitId = route.params?.habitId;
   const isEditing = useMemo(() => !!habitId, [habitId]);
+  const isConvexId = useMemo(() => habitId && !habitId.includes('-'), [habitId]);
 
-  // Check if habitId is a Convex ID (starts with specific pattern)
-  const isConvexId = useMemo(() => {
-    return habitId && !habitId.includes('-'); // UUID has dashes, Convex IDs don't
-  }, [habitId]);
-
-  // Convex mutations
+  // Convex
   const createHabitMutation = useCreateHabit();
   const updateHabitMutation = useUpdateHabit();
   const archiveHabitMutation = useArchiveHabit();
   const deleteHabitMutation = useDeleteHabit();
-
-  // Convex query for existing habit
   const { habit: convexHabit, isLoading: convexLoading } = useHabitWithEntries(
-    isConvexId && isEditing ? (habitId as Id<"habits">) : null
+    isConvexId && isEditing ? (habitId as Id<'habits'>) : null
   );
+  const { identities } = useIdentities();
 
-  // Form state
+  // ─── Wizard state ───
+  const [step, setStep] = useState<Step>(isEditing ? 'What' : 'What');
   const [name, setName] = useState('');
+  const [icon, setIcon] = useState(HABIT_ICONS[0]);
+  const [color, setColor] = useState(HABIT_COLORS[0]);
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [reminderTime, setReminderTime] = useState('');
-  const [color, setColor] = useState(HABIT_COLORS[0]);
-  const [icon, setIcon] = useState(HABIT_ICONS[0]);
+  const [cue, setCue] = useState('');
+  const [minimumAction, setMinimumAction] = useState('');
+  const [reward, setReward] = useState('');
+  const [frictionNotes, setFrictionNotes] = useState('');
+  const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [legacyHabitLoaded, setLegacyHabitLoaded] = useState(false);
+  const [legacyLoaded, setLegacyLoaded] = useState(false);
 
+  // ─── Header ───
   useEffect(() => {
     navigation.setOptions({
       title: isEditing ? 'Edit Habit' : 'New Habit',
@@ -102,19 +104,25 @@ export function HabitFormScreen() {
     });
   }, [isEditing, navigation, colors]);
 
-  // Load Convex habit data
+  // Load Convex data
   useEffect(() => {
     if (convexHabit && isConvexId) {
       setName(convexHabit.title);
       setDays(convexHabit.scheduleType === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : (convexHabit.daysOfWeek || []));
       setColor(convexHabit.color || HABIT_COLORS[0]);
       setIcon(convexHabit.icon || HABIT_ICONS[0]);
+      setCue(convexHabit.cue || '');
+      setMinimumAction(convexHabit.minimumAction || '');
+      setReward(convexHabit.reward || '');
+      setFrictionNotes(convexHabit.frictionNotes || '');
+      setReminderTime(convexHabit.reminderTime || '');
+      setSelectedIdentityId(convexHabit.identityId || null);
     }
   }, [convexHabit, isConvexId]);
 
-  // Load legacy habit data
+  // Load legacy
   useEffect(() => {
-    if (!habitId || isConvexId || legacyHabitLoaded) return;
+    if (!habitId || isConvexId || legacyLoaded) return;
     (async () => {
       const all = await loadHabits();
       const found = all.find((h) => h.id === habitId);
@@ -124,167 +132,114 @@ export function HabitFormScreen() {
       setReminderTime(found.reminderTime || '');
       setColor(found.color || HABIT_COLORS[0]);
       setIcon(found.icon || HABIT_ICONS[0]);
-      setLegacyHabitLoaded(true);
+      setLegacyLoaded(true);
     })();
-  }, [habitId, isConvexId, legacyHabitLoaded]);
+  }, [habitId, isConvexId, legacyLoaded]);
 
   const toggleDay = (d: number) => {
-    setDays((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
-    );
+    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
   };
 
-  const validateTime = (text: string): boolean => {
-    if (!text) return true;
-    const match = text.match(/^(\d{2}):(\d{2})$/);
-    if (!match) return false;
-    const h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+  // ─── Navigation between steps ───
+  const stepIndex = STEPS.indexOf(step);
+  const canGoNext = () => {
+    if (step === 'What') return name.trim().length > 0;
+    if (step === 'When') return days.length > 0;
+    return true;
+  };
+  const goNext = () => {
+    if (stepIndex < STEPS.length - 1) setStep(STEPS[stepIndex + 1]);
+  };
+  const goBack = () => {
+    if (stepIndex > 0) setStep(STEPS[stepIndex - 1]);
+    else navigation.goBack();
   };
 
+  // ─── Save ───
   const onSave = async () => {
     const trimmed = name.trim();
-    if (!trimmed) {
-      return Alert.alert('Missing name', 'Please enter a habit name.');
-    }
-    if (!days.length) {
-      return Alert.alert('No days selected', 'Pick at least one day.');
-    }
-    if (reminderTime && !validateTime(reminderTime)) {
-      return Alert.alert('Invalid time', 'Use HH:MM format (e.g., 08:30).');
-    }
+    if (!trimmed) return Alert.alert('Missing name', 'Please enter a habit name.');
+    if (!days.length) return Alert.alert('No days selected', 'Pick at least one day.');
 
     setLoading(true);
     try {
       if (useConvex) {
-        // Convex save
         const isDaily = days.length === 7;
+        const payload = {
+          title: trimmed,
+          scheduleType: (isDaily ? 'daily' : 'weekly') as 'daily' | 'weekly',
+          daysOfWeek: isDaily ? undefined : days,
+          color,
+          icon,
+          cue: cue || undefined,
+          minimumAction: minimumAction || undefined,
+          reward: reward || undefined,
+          frictionNotes: frictionNotes || undefined,
+          identityId: selectedIdentityId ? (selectedIdentityId as Id<'identities'>) : undefined,
+          reminderTime: reminderTime || undefined,
+        };
         if (isEditing && isConvexId) {
-          await updateHabitMutation({
-            habitId: habitId as Id<"habits">,
-            title: trimmed,
-            scheduleType: isDaily ? 'daily' : 'weekly',
-            daysOfWeek: isDaily ? undefined : days,
-            color,
-            icon,
-          });
+          await updateHabitMutation({ habitId: habitId as Id<'habits'>, ...payload });
         } else {
-          await createHabitMutation({
-            title: trimmed,
-            scheduleType: isDaily ? 'daily' : 'weekly',
-            daysOfWeek: isDaily ? undefined : days,
-            color,
-            icon,
-          });
+          await createHabitMutation(payload);
         }
       } else {
-        // Legacy save
+        // Legacy path
         const all = await loadHabits();
         let habit: LegacyHabit;
-
         if (habitId && !isConvexId) {
           const existing = all.find((h) => h.id === habitId);
           if (!existing) return;
-          habit = {
-            ...existing,
-            name: trimmed,
-            daysOfWeek: days,
-            reminderTime: reminderTime || null,
-            color,
-            icon,
-          };
+          habit = { ...existing, name: trimmed, daysOfWeek: days, reminderTime: reminderTime || null, color, icon };
           await saveHabits(all.map((h) => (h.id === habitId ? habit : h)));
         } else {
           habit = {
-            id: String(uuid.v4()),
-            name: trimmed,
-            daysOfWeek: days,
-            reminderTime: reminderTime || null,
-            color,
-            icon,
-            createdAt: Date.now(),
-            isArchived: false,
+            id: String(uuid.v4()), name: trimmed, daysOfWeek: days,
+            reminderTime: reminderTime || null, color, icon, createdAt: Date.now(), isArchived: false,
           };
           await saveHabits([habit, ...all]);
         }
-
-        // Schedule or cancel notifications
-        if (habit.reminderTime) {
-          await scheduleHabitNotifications(habit);
-        } else {
-          await cancelHabitNotifications(habit.id);
-        }
+        if (habit.reminderTime) await scheduleHabitNotifications(habit);
+        else await cancelHabitNotifications(habit.id);
       }
-
       navigation.goBack();
     } catch (error) {
       console.error('Save error:', error);
-      Alert.alert('Error', 'Failed to save habit. Please try again.');
+      Alert.alert('Error', 'Failed to save habit.');
     } finally {
       setLoading(false);
     }
   };
 
   const onArchive = () => {
-    Alert.alert(
-      'Archive Habit',
-      'This will hide the habit from your home screen. Historical data is preserved.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            if (!habitId) return;
-            try {
-              if (useConvex && isConvexId) {
-                await archiveHabitMutation({ habitId: habitId as Id<"habits"> });
-              } else {
-                await archiveHabitLegacy(habitId);
-                await cancelHabitNotifications(habitId);
-              }
-              navigation.goBack();
-            } catch (error) {
-              console.error('Archive error:', error);
-              Alert.alert('Error', 'Failed to archive habit.');
-            }
-          },
+    Alert.alert('Archive Habit', 'Hide from home. Data is preserved.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Archive', style: 'destructive', onPress: async () => {
+          if (!habitId) return;
+          if (useConvex && isConvexId) await archiveHabitMutation({ habitId: habitId as Id<'habits'> });
+          else { await archiveHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+          navigation.goBack();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const onDelete = () => {
-    Alert.alert(
-      'Delete Habit',
-      'This will permanently delete the habit and all its data. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            if (!habitId) return;
-            try {
-              if (useConvex && isConvexId) {
-                await deleteHabitMutation({ habitId: habitId as Id<"habits"> });
-              } else {
-                await deleteHabitLegacy(habitId);
-                await cancelHabitNotifications(habitId);
-              }
-              navigation.goBack();
-            } catch (error) {
-              console.error('Delete error:', error);
-              Alert.alert('Error', 'Failed to delete habit.');
-            }
-          },
+    Alert.alert('Delete Habit', 'Permanent. Cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          if (!habitId) return;
+          if (useConvex && isConvexId) await deleteHabitMutation({ habitId: habitId as Id<'habits'> });
+          else { await deleteHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+          navigation.goBack();
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  // Loading state for Convex habit
+  // Loading
   if (isConvexId && isEditing && convexLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -293,177 +248,249 @@ export function HabitFormScreen() {
     );
   }
 
+  // ─── Step indicators ───
+  const renderStepIndicator = () => (
+    <View style={styles.stepsRow}>
+      {STEPS.map((s, i) => (
+        <Pressable key={s} onPress={() => { if (i <= stepIndex || isEditing) setStep(s); }} style={styles.stepItem}>
+          <View style={[
+            styles.stepDot,
+            { backgroundColor: i <= stepIndex ? colors.primary : colors.border },
+          ]}>
+            {i < stepIndex && <Ionicons name="checkmark" size={12} color="#FFF" />}
+            {i === stepIndex && <Text style={styles.stepNum}>{i + 1}</Text>}
+          </View>
+          <Text style={[styles.stepLabel, { color: i <= stepIndex ? colors.text : colors.textTertiary }]}>
+            {s}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Name */}
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          HABIT NAME *
-        </Text>
-        <TextInput
-          placeholder="e.g., Morning run"
-          placeholderTextColor={colors.placeholder}
-          value={name}
-          onChangeText={setName}
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              color: colors.text,
-            },
-          ]}
-          autoFocus={!isEditing}
-        />
+      {/* Step indicator — only for new habits */}
+      {!isEditing && renderStepIndicator()}
 
-        {/* Days */}
-        <Text
-          style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
-        >
-          DAYS OF WEEK *
-        </Text>
-        <View style={styles.daysRow}>
-          {ALL_DAYS.map((d) => {
-            const active = days.includes(d.id);
-            return (
-              <Pressable
-                key={d.id}
-                onPress={() => toggleDay(d.id)}
-                style={[
-                  styles.dayPill,
-                  {
-                    backgroundColor: active ? colors.primary : colors.surface,
-                    borderColor: active ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* ══════ STEP 1: WHAT ══════ */}
+        {(step === 'What' || isEditing) && (
+          <>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>
+              {isEditing ? 'Edit Habit' : 'What habit do you want to build?'}
+            </Text>
+
+            <TextInput
+              placeholder="e.g., Morning exercise"
+              placeholderTextColor={colors.placeholder}
+              value={name}
+              onChangeText={setName}
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              autoFocus={!isEditing && step === 'What'}
+            />
+
+            {/* Icon picker */}
+            <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>ICON</Text>
+            <View style={styles.iconsGrid}>
+              {HABIT_ICONS.map((ic) => (
+                <Pressable
+                  key={ic}
+                  onPress={() => setIcon(ic)}
                   style={[
-                    styles.dayText,
-                    { color: active ? '#FFF' : colors.text },
+                    styles.iconCell,
+                    {
+                      backgroundColor: icon === ic ? colors.primaryBg : colors.surface,
+                      borderColor: icon === ic ? colors.primary : colors.border,
+                    },
                   ]}
                 >
-                  {d.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                  <Text style={styles.iconEmoji}>{ic}</Text>
+                </Pressable>
+              ))}
+            </View>
 
-        {/* Reminder time (only for legacy habits) */}
-        {!useConvex && (
-          <>
-            <Text
-              style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
-            >
-              REMINDER TIME (OPTIONAL)
-            </Text>
-            <TextInput
-              placeholder="HH:MM (e.g., 08:30)"
-              placeholderTextColor={colors.placeholder}
-              value={reminderTime}
-              onChangeText={setReminderTime}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-            />
+            {/* Color */}
+            <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>COLOR</Text>
+            <View style={styles.colorsRow}>
+              {HABIT_COLORS.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => setColor(c)}
+                  style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.colorSelected]}
+                >
+                  {color === c && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                </Pressable>
+              ))}
+            </View>
           </>
         )}
 
-        {/* Color */}
-        <Text
-          style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
-        >
-          COLOR
-        </Text>
-        <View style={styles.colorsRow}>
-          {HABIT_COLORS.map((c) => (
+        {/* ══════ STEP 2: WHEN ══════ */}
+        {(step === 'When' || isEditing) && (
+          <>
+            {!isEditing && (
+              <Text style={[styles.stepTitle, { color: colors.text }]}>When will you do it?</Text>
+            )}
+
+            <Text style={[styles.label, isEditing && styles.sectionGap, { color: colors.textSecondary }]}>DAYS</Text>
+            <View style={styles.daysRow}>
+              {ALL_DAYS.map((d) => {
+                const active = days.includes(d.id);
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => toggleDay(d.id)}
+                    style={[
+                      styles.dayPill,
+                      { backgroundColor: active ? colors.primary : colors.surface, borderColor: active ? colors.primary : colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.dayText, { color: active ? '#FFF' : colors.text }]}>{d.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Cue / Trigger */}
+            {useConvex && (
+              <>
+                <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
+                  TRIGGER (AFTER I...)
+                </Text>
+                <TextInput
+                  placeholder="e.g., After I brush my teeth"
+                  placeholderTextColor={colors.placeholder}
+                  value={cue}
+                  onChangeText={setCue}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {/* ══════ STEP 3: HOW ══════ */}
+        {(step === 'How' || isEditing) && useConvex && (
+          <>
+            {!isEditing && (
+              <Text style={[styles.stepTitle, { color: colors.text }]}>How will you succeed?</Text>
+            )}
+
+            <Text style={[styles.label, isEditing && styles.sectionGap, { color: colors.textSecondary }]}>
+              30-SECOND VERSION (minimum action)
+            </Text>
+            <TextInput
+              placeholder="e.g., 2 push-ups"
+              placeholderTextColor={colors.placeholder}
+              value={minimumAction}
+              onChangeText={setMinimumAction}
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+            />
+
+            <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
+              REWARD (what makes it satisfying?)
+            </Text>
+            <TextInput
+              placeholder="e.g., Checkmark + energy rush"
+              placeholderTextColor={colors.placeholder}
+              value={reward}
+              onChangeText={setReward}
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+            />
+
+            <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
+              FRICTION CONTROL (make it easier)
+            </Text>
+            <TextInput
+              placeholder="e.g., Lay out workout clothes tonight"
+              placeholderTextColor={colors.placeholder}
+              value={frictionNotes}
+              onChangeText={setFrictionNotes}
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+            />
+
+            {/* Identity link */}
+            {identities.length > 0 && (
+              <>
+                <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
+                  LINKED IDENTITY
+                </Text>
+                <View style={styles.identityList}>
+                  {identities.map((id) => (
+                    <Pressable
+                      key={id._id}
+                      onPress={() => setSelectedIdentityId(selectedIdentityId === id._id ? null : id._id)}
+                      style={[
+                        styles.identityChip,
+                        {
+                          backgroundColor: selectedIdentityId === id._id ? colors.primaryBg : colors.surface,
+                          borderColor: selectedIdentityId === id._id ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.identityChipIcon}>{id.icon || '🎯'}</Text>
+                      <Text
+                        style={[
+                          styles.identityChipText,
+                          { color: selectedIdentityId === id._id ? colors.primary : colors.text },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {id.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ══════ NAVIGATION ══════ */}
+        {isEditing ? (
+          <>
             <Pressable
-              key={c}
-              onPress={() => setColor(c)}
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              onPress={onSave}
+              disabled={loading}
+            >
+              <Text style={styles.saveBtnText}>{loading ? 'Saving...' : 'Save Changes'}</Text>
+            </Pressable>
+            <View style={styles.dangerZone}>
+              <Pressable style={[styles.dangerBtn, { borderColor: colors.warning }]} onPress={onArchive}>
+                <Ionicons name="archive-outline" size={18} color={colors.warning} />
+                <Text style={[styles.dangerBtnText, { color: colors.warning }]}>Archive</Text>
+              </Pressable>
+              <Pressable style={[styles.dangerBtn, { borderColor: colors.danger }]} onPress={onDelete}>
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                <Text style={[styles.dangerBtnText, { color: colors.danger }]}>Delete</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={styles.wizardNav}>
+            {stepIndex > 0 && (
+              <Pressable style={[styles.wizardBackBtn, { borderColor: colors.border }]} onPress={goBack}>
+                <Ionicons name="arrow-back" size={18} color={colors.text} />
+                <Text style={[styles.wizardBackText, { color: colors.text }]}>Back</Text>
+              </Pressable>
+            )}
+            <Pressable
               style={[
-                styles.colorCircle,
-                { backgroundColor: c },
-                color === c && styles.colorSelected,
+                styles.wizardNextBtn,
+                { backgroundColor: canGoNext() ? colors.primary : colors.border, flex: stepIndex > 0 ? 1 : undefined },
               ]}
+              onPress={stepIndex === STEPS.length - 1 ? onSave : goNext}
+              disabled={!canGoNext() || loading}
             >
-              {color === c && (
-                <Ionicons name="checkmark" size={16} color="#FFF" />
-              )}
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Icon */}
-        <Text
-          style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}
-        >
-          ICON
-        </Text>
-        <View style={styles.iconsGrid}>
-          {HABIT_ICONS.map((ic) => (
-            <Pressable
-              key={ic}
-              onPress={() => setIcon(ic)}
-              style={[
-                styles.iconCell,
-                {
-                  backgroundColor:
-                    icon === ic ? colors.primaryBg : colors.surface,
-                  borderColor: icon === ic ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Text style={styles.iconEmoji}>{ic}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Save */}
-        <Pressable
-          style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-          onPress={onSave}
-          disabled={loading}
-        >
-          <Text style={styles.saveText}>
-            {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Habit'}
-          </Text>
-        </Pressable>
-
-        {/* Archive / Delete (edit mode only) */}
-        {isEditing && (
-          <View style={styles.dangerZone}>
-            <Pressable
-              style={[styles.dangerBtn, { borderColor: colors.warning }]}
-              onPress={onArchive}
-            >
-              <Ionicons name="archive-outline" size={18} color={colors.warning} />
-              <Text style={[styles.dangerBtnText, { color: colors.warning }]}>
-                Archive
+              <Text style={styles.wizardNextText}>
+                {loading ? 'Saving...' : stepIndex === STEPS.length - 1 ? 'Create Habit' : 'Continue'}
               </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.dangerBtn, { borderColor: colors.danger }]}
-              onPress={onDelete}
-            >
-              <Ionicons name="trash-outline" size={18} color={colors.danger} />
-              <Text style={[styles.dangerBtnText, { color: colors.danger }]}>
-                Delete
-              </Text>
+              {stepIndex < STEPS.length - 1 && <Ionicons name="arrow-forward" size={18} color="#FFF" />}
             </Pressable>
           </View>
         )}
@@ -473,93 +500,72 @@ export function HabitFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+
+  // Steps indicator
+  stepsRow: { flexDirection: 'row', justifyContent: 'center', gap: 24, paddingVertical: 12, paddingHorizontal: 20 },
+  stepItem: { alignItems: 'center', gap: 4 },
+  stepDot: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
   },
+  stepNum: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  stepLabel: { fontSize: 12, fontWeight: '600' },
+
+  stepTitle: { fontSize: 22, fontWeight: '800', marginBottom: 16 },
+
+  label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
   sectionGap: { marginTop: 22 },
-  input: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-  },
-  daysRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 10,
-  },
-  dayPill: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  dayText: { fontSize: 13, fontWeight: '600' },
-  colorsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-    flexWrap: 'wrap',
-  },
-  colorCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorSelected: {
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.6)',
-  },
-  iconsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  iconCell: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  input: { marginTop: 8, borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
+
+  // Days
+  daysRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  dayPill: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  dayText: { fontSize: 14, fontWeight: '700' },
+
+  // Colors
+  colorsRow: { flexDirection: 'row', gap: 10, marginTop: 10, flexWrap: 'wrap' },
+  colorCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  colorSelected: { borderWidth: 3, borderColor: 'rgba(255,255,255,0.6)' },
+
+  // Icons
+  iconsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  iconCell: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   iconEmoji: { fontSize: 22 },
-  saveBtn: {
-    marginTop: 28,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    elevation: 2,
+
+  // Identity
+  identityList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  identityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1,
   },
-  saveText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
-  dangerZone: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+  identityChipIcon: { fontSize: 16 },
+  identityChipText: { fontSize: 14, fontWeight: '500' },
+
+  // Save
+  saveBtn: { marginTop: 28, borderRadius: 14, paddingVertical: 16, alignItems: 'center', elevation: 2 },
+  saveBtnText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+
+  // Wizard nav
+  wizardNav: { flexDirection: 'row', gap: 12, marginTop: 28 },
+  wizardBackBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 16, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1,
   },
+  wizardBackText: { fontSize: 16, fontWeight: '600' },
+  wizardNextBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 16, borderRadius: 14, elevation: 2,
+  },
+  wizardNextText: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+
+  // Danger
+  dangerZone: { flexDirection: 'row', gap: 12, marginTop: 20 },
   dangerBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 12, borderWidth: 1.5,
   },
   dangerBtnText: { fontSize: 15, fontWeight: '600' },
 });

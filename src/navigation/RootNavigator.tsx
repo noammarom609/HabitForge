@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HabitFormScreen } from '../screens/HabitFormScreen';
+import { IdentityScreen } from '../screens/IdentityScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { TabsNavigator } from './TabsNavigator';
@@ -13,6 +14,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Tabs: undefined;
   HabitForm: { habitId?: string } | undefined;
+  Identity: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -72,6 +74,14 @@ export function RootNavigator() {
         component={HabitFormScreen}
         options={{
           title: 'New Habit',
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="Identity"
+        component={IdentityScreen}
+        options={{
+          title: 'My Identity',
           presentation: 'modal',
         }}
       />
