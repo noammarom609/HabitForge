@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as habits from "../habits.js";
+import type * as insights from "../insights.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   habits: typeof habits;
+  insights: typeof insights;
 }>;
 
 /**

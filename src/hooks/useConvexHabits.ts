@@ -5,42 +5,42 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 
-/**
- * Get today's date in YYYY-MM-DD format
- */
 export function getTodayDate(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-/**
- * Hook to get all active habits for the current user
- */
+// ═══════ Command Center (Today) ═══════
+
+export function useCommandCenter(date?: string) {
+  const targetDate = date ?? getTodayDate();
+  const data = useQuery(api.habits.getCommandCenter, { date: targetDate });
+  return {
+    habits: data?.habits ?? [],
+    entries: data?.entries ?? [],
+    identities: data?.identities ?? [],
+    insight: data?.insight ?? null,
+    stats: data?.stats ?? { completedToday: 0, totalToday: 0, streaks: {} },
+    missedYesterday: data?.missedYesterday ?? false,
+    isLoading: data === undefined,
+    date: targetDate,
+  };
+}
+
+// ═══════ Simple queries ═══════
+
 export function useHabits() {
   const habits = useQuery(api.habits.getHabits);
-  return {
-    habits: habits ?? [],
-    isLoading: habits === undefined,
-  };
+  return { habits: habits ?? [], isLoading: habits === undefined };
 }
 
-/**
- * Hook to get all habits including archived
- */
 export function useAllHabits() {
   const habits = useQuery(api.habits.getAllHabits);
-  return {
-    habits: habits ?? [],
-    isLoading: habits === undefined,
-  };
+  return { habits: habits ?? [], isLoading: habits === undefined };
 }
 
-/**
- * Hook to get habits and entries for a specific date
- */
 export function useToday(date?: string) {
   const targetDate = date ?? getTodayDate();
   const data = useQuery(api.habits.getToday, { date: targetDate });
-  
   return {
     habits: data?.habits ?? [],
     entries: data?.entries ?? [],
@@ -49,15 +49,21 @@ export function useToday(date?: string) {
   };
 }
 
-/**
- * Hook to get a habit with its recent entries
- */
+export function useInsights() {
+  const data = useQuery(api.habits.getInsights);
+  return { data, isLoading: data === undefined };
+}
+
+export function useIdentities() {
+  const ids = useQuery(api.habits.getIdentities);
+  return { identities: ids ?? [], isLoading: ids === undefined };
+}
+
 export function useHabitWithEntries(habitId: Id<"habits"> | null, rangeDays = 30) {
   const data = useQuery(
     api.habits.getHabitWithRecentEntries,
     habitId ? { habitId, rangeDays } : "skip"
   );
-  
   return {
     habit: data?.habit ?? null,
     entries: data?.entries ?? [],
@@ -65,82 +71,31 @@ export function useHabitWithEntries(habitId: Id<"habits"> | null, rangeDays = 30
   };
 }
 
-/**
- * Hook to get auth debug info (for testing)
- */
 export function useAuthDebug() {
-  const debug = useQuery(api.habits.getAuthDebug);
-  return debug;
+  return useQuery(api.habits.getAuthDebug);
 }
 
-// ============ MUTATIONS ============
+// ═══════ Mutations ═══════
 
-/**
- * Hook to create a new habit
- */
-export function useCreateHabit() {
-  return useMutation(api.habits.createHabit);
-}
+export function useCreateHabit() { return useMutation(api.habits.createHabit); }
+export function useUpdateHabit() { return useMutation(api.habits.updateHabit); }
+export function useToggleHabit() { return useMutation(api.habits.toggleHabitForDate); }
+export function useArchiveHabit() { return useMutation(api.habits.archiveHabit); }
+export function useRestoreHabit() { return useMutation(api.habits.restoreHabit); }
+export function useDeleteHabit() { return useMutation(api.habits.deleteHabit); }
+export function useSeedHabits() { return useMutation(api.habits.devSeedHabits); }
+export function useCreateIdentity() { return useMutation(api.habits.createIdentity); }
+export function useDeleteIdentity() { return useMutation(api.habits.deleteIdentity); }
 
-/**
- * Hook to update a habit
- */
-export function useUpdateHabit() {
-  return useMutation(api.habits.updateHabit);
-}
+// ═══════ Utilities ═══════
 
-/**
- * Hook to toggle habit completion for a date
- */
-export function useToggleHabit() {
-  return useMutation(api.habits.toggleHabitForDate);
-}
-
-/**
- * Hook to archive a habit
- */
-export function useArchiveHabit() {
-  return useMutation(api.habits.archiveHabit);
-}
-
-/**
- * Hook to restore an archived habit
- */
-export function useRestoreHabit() {
-  return useMutation(api.habits.restoreHabit);
-}
-
-/**
- * Hook to permanently delete a habit
- */
-export function useDeleteHabit() {
-  return useMutation(api.habits.deleteHabit);
-}
-
-/**
- * Hook to seed sample habits (dev only)
- */
-export function useSeedHabits() {
-  return useMutation(api.habits.devSeedHabits);
-}
-
-// ============ UTILITIES ============
-
-/**
- * Check if a habit is completed for a specific date
- */
 export function isHabitDone(
   entries: Array<{ habitId: Id<"habits">; status: string }>,
   habitId: Id<"habits">
 ): boolean {
-  return entries.some(
-    (entry) => entry.habitId === habitId && entry.status === "done"
-  );
+  return entries.some((e) => e.habitId === habitId && e.status === "done");
 }
 
-/**
- * Get the entry status for a habit on a specific date
- */
 export function getHabitStatus(
   entries: Array<{ habitId: Id<"habits">; status: string }>,
   habitId: Id<"habits">
