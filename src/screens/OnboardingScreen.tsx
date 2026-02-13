@@ -1,38 +1,39 @@
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View,
-    ViewToken,
+  Dimensions,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingDone } from '../data/storage';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const slides = [
   {
-    emoji: '📋',
+    icon: '📋',
     title: 'Track Your Habits',
     subtitle:
       'Create custom habits and track them daily.\nSet reminders so you never miss a day.',
   },
   {
-    emoji: '🔥',
+    icon: '🔥',
     title: 'Build Streaks',
     subtitle:
       'Stay consistent and build streaks.\nSee how many days in a row you can keep going.',
   },
   {
-    emoji: '📊',
+    icon: '📊',
     title: 'See Your Progress',
     subtitle:
       'View weekly and monthly statistics.\nUnderstand your patterns and improve.',
@@ -41,72 +42,92 @@ const slides = [
 
 export function OnboardingScreen() {
   const navigation = useNavigation<Nav>();
-  const flatListRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const onDone = async () => {
     await markOnboardingDone();
-    navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
   };
 
   const onNext = () => {
     if (currentIndex < slides.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
+      setCurrentIndex(currentIndex + 1);
     } else {
       onDone();
     }
   };
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index != null) {
-        setCurrentIndex(viewableItems[0].index);
-      }
-    },
-  ).current;
+  const handleScroll = (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    if (slideIndex !== currentIndex && slideIndex >= 0 && slideIndex < slides.length) {
+      setCurrentIndex(slideIndex);
+    }
+  };
 
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  const currentSlide = slides[currentIndex];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <Text style={styles.emoji}>{item.emoji}</Text>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
-          </View>
-        )}
-      />
+      {/* Simple slide view - works better on web */}
+      {Platform.OS === 'web' ? (
+        <View style={styles.slideContainer}>
+          <Text style={styles.icon}>{currentSlide.icon}</Text>
+          <Text style={styles.title}>{currentSlide.title}</Text>
+          <Text style={styles.subtitle}>{currentSlide.subtitle}</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScroll}
+          scrollEventThrottle={16}
+          contentOffset={{ x: currentIndex * SCREEN_WIDTH, y: 0 }}
+        >
+          {slides.map((slide, index) => (
+            <View key={index} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+              <Text style={styles.icon}>{slide.icon}</Text>
+              <Text style={styles.title}>{slide.title}</Text>
+              <Text style={styles.subtitle}>{slide.subtitle}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 30) }]}>
         <View style={styles.dots}>
           {slides.map((_, i) => (
-            <View
+            <Pressable
               key={i}
+              onPress={() => setCurrentIndex(i)}
               style={[styles.dot, i === currentIndex && styles.dotActive]}
             />
           ))}
         </View>
 
-        <Pressable style={styles.button} onPress={onNext}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.buttonPressed,
+          ]}
+          onPress={onNext}
+        >
           <Text style={styles.buttonText}>
             {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
           </Text>
         </Pressable>
 
         {currentIndex < slides.length - 1 && (
-          <Pressable onPress={onDone} style={styles.skipBtn}>
+          <Pressable
+            onPress={onDone}
+            style={({ pressed }) => [
+              styles.skipBtn,
+              pressed && styles.skipPressed,
+            ]}
+          >
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
         )}
@@ -120,16 +141,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#6366F1',
   },
-  slide: {
-    width,
+  slideContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  emoji: {
-    fontSize: 80,
-    marginBottom: 28,
+  slide: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  icon: {
+    fontSize: 72,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   title: {
     fontSize: 28,
@@ -146,23 +173,22 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 40,
-    paddingBottom: 50,
     alignItems: 'center',
   },
   dots: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 32,
+    gap: 10,
+    marginBottom: 28,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   dotActive: {
     backgroundColor: '#FFFFFF',
-    width: 24,
+    width: 28,
   },
   button: {
     backgroundColor: '#FFFFFF',
@@ -170,7 +196,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
     borderRadius: 16,
     width: '100%',
+    maxWidth: 320,
     alignItems: 'center',
+  },
+  buttonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   buttonText: {
     fontSize: 17,
@@ -179,6 +210,11 @@ const styles = StyleSheet.create({
   },
   skipBtn: {
     marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  skipPressed: {
+    opacity: 0.7,
   },
   skipText: {
     fontSize: 15,

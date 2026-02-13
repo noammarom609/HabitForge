@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { AuthScreen } from '../screens/AuthScreen';
 import { HabitFormScreen } from '../screens/HabitFormScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { useTheme } from '../theme/ThemeContext';
@@ -9,6 +10,7 @@ import { TabsNavigator } from './TabsNavigator';
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  Auth: undefined;
   Tabs: undefined;
   HabitForm: { habitId?: string } | undefined;
 };
@@ -50,13 +52,16 @@ export function RootNavigator() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      {showOnboarding && (
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ headerShown: false }}
-        />
-      )}
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="Tabs"
         component={TabsNavigator}
