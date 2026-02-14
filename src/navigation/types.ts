@@ -52,6 +52,9 @@ export type SettingsStackParamList = {
   [Routes.Support]: undefined;
   [Routes.IntegrationsHub]: undefined;
   [Routes.DataBackupRestore]: undefined;
+  [Routes.Feedback]: undefined;
+  [Routes.CalendarHeatmap]: undefined;
+  [Routes.HabitHealthScore]: { habitId?: string };
 };
 
 export type TabsParamList = {

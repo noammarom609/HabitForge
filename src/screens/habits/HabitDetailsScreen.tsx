@@ -1,9 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useHabitWithEntries } from '../../hooks/useConvexHabits';
+import {
+  useArchiveHabit,
+  useDeleteHabit,
+  useHabitWithEntries,
+  useRestoreHabit,
+} from '../../hooks/useConvexHabits';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
@@ -19,6 +24,34 @@ export function HabitDetailsScreen() {
   const habitId = (route.params as any)?.habitId as Id<'habits'>;
 
   const { habit, entries, isLoading } = useHabitWithEntries(habitId, 30);
+  const archiveHabit = useArchiveHabit();
+  const restoreHabit = useRestoreHabit();
+  const deleteHabit = useDeleteHabit();
+
+  const onArchive = () => {
+    Alert.alert('ארכוב הרגל', 'ההרגל יוסתר מהמסך הראשי. הנתונים נשמרים.', [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'ארכב', style: 'destructive', onPress: async () => {
+        await archiveHabit({ habitId });
+        navigation.goBack();
+      }},
+    ]);
+  };
+
+  const onDelete = () => {
+    Alert.alert('מחיקת הרגל', 'פעולה קבועה. לא ניתן לבטל.', [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'מחק', style: 'destructive', onPress: async () => {
+        await deleteHabit({ habitId });
+        navigation.goBack();
+      }},
+    ]);
+  };
+
+  const onRestore = async () => {
+    await restoreHabit({ habitId });
+    navigation.goBack();
+  };
 
   if (isLoading || !habit) {
     return (
@@ -76,6 +109,32 @@ export function HabitDetailsScreen() {
         variant="secondary"
         style={styles.editBtn}
       />
+
+      <View style={styles.dangerZone}>
+        {habit.isActive ? (
+          <>
+            <Button
+              title="ארכב הרגל"
+              onPress={onArchive}
+              variant="secondary"
+              style={[styles.dangerBtn, { borderColor: colors.warning }]}
+            />
+            <Button
+              title="מחק הרגל"
+              onPress={onDelete}
+              variant="danger"
+              style={styles.dangerBtn}
+            />
+          </>
+        ) : (
+          <Button
+            title="שחזר הרגל"
+            onPress={onRestore}
+            variant="secondary"
+            style={styles.dangerBtn}
+          />
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -93,4 +152,6 @@ const styles = StyleSheet.create({
   icon: { fontSize: 48, marginBottom: 12 },
   card: { marginBottom: 16 },
   editBtn: { marginTop: 24 },
+  dangerZone: { marginTop: 16, gap: 12 },
+  dangerBtn: { marginBottom: 8 },
 });

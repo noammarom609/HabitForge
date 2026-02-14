@@ -38,6 +38,7 @@ export default defineSchema({
     identityId: v.optional(v.id("identities")),
     // ── Scheduling ──
     reminderTime: v.optional(v.string()),   // "HH:MM"
+    reminderEnabled: v.optional(v.boolean()), // default true when reminderTime set
     // ── Meta ──
     sortOrder: v.optional(v.number()),
     createdAt: v.number(),
@@ -45,6 +46,35 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_active", ["userId", "isActive"]),
+
+  // ─── Weekly Reviews ───
+  weeklyReviews: defineTable({
+    userId: v.id("users"),
+    weekStart: v.string(), // "YYYY-MM-DD" (Sunday)
+    worked: v.optional(v.string()),
+    broke: v.optional(v.string()),
+    improve: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_user_week", ["userId", "weekStart"]),
+
+  // ─── Feedback ───
+  feedback: defineTable({
+    userId: v.id("users"),
+    text: v.string(),
+    createdAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // ─── Motivation Vault (reminders) ───
+  motivationReminders: defineTable({
+    userId: v.id("users"),
+    text: v.string(),
+    habitId: v.optional(v.id("habits")),
+    sortOrder: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_userId", ["userId"]),
 
   // ─── Habit Entries (completions) ───
   habitEntries: defineTable({

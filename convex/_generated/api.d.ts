@@ -9,8 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as feedback from "../feedback.js";
 import type * as habits from "../habits.js";
 import type * as insights from "../insights.js";
+import type * as motivationVault from "../motivationVault.js";
+import type * as weeklyReviews from "../weeklyReviews.js";
 
 import type {
   ApiFromModules,
@@ -20,8 +23,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  feedback: typeof feedback;
   habits: typeof habits;
   insights: typeof insights;
+  motivationVault: typeof motivationVault;
+  weeklyReviews: typeof weeklyReviews;
 }>;
 
 /**

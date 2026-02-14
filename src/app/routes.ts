@@ -51,6 +51,7 @@ export const Routes = {
   Support: 'Support',
   IntegrationsHub: 'IntegrationsHub',
   DataBackupRestore: 'DataBackupRestore',
+  Feedback: 'Feedback',
 
   // Identity OS (V3)
   IdentityBuilder: 'IdentityBuilder',

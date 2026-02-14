@@ -1,23 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@clerk/clerk-expo';
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAllHabits } from '../../hooks/useConvexHabits';
+import { useAllHabits, useHabits } from '../../hooks/useConvexHabits';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Routes } from '../../app/routes';
 
+type TabType = 'active' | 'archive';
+
 export function HabitsHomeScreen() {
   const navigation = useNavigation<any>();
-  const { colors, spacing } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { isSignedIn, isLoaded } = useAuth();
+  const [tab, setTab] = useState<TabType>('active');
 
-  const { habits: convexHabits, isLoading } = useAllHabits();
-  const habits = convexHabits ?? [];
+  const { habits: activeHabits, isLoading: loadingActive } = useHabits();
+  const { habits: allHabits, isLoading: loadingAll } = useAllHabits();
+
+  const habits = tab === 'active'
+    ? (activeHabits ?? [])
+    : (allHabits ?? []).filter((h) => !h.isActive);
+  const isLoading = tab === 'active' ? loadingActive : loadingAll;
 
   const onAddHabit = () => navigation.navigate(Routes.HabitForm);
   const onHabitPress = (habitId: string) =>
@@ -43,13 +49,28 @@ export function HabitsHomeScreen() {
         </Pressable>
       </View>
 
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
+        <Pressable
+          style={[styles.tab, tab === 'active' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+          onPress={() => setTab('active')}
+        >
+          <Text variant="h3" style={{ color: tab === 'active' ? colors.primary : colors.textSecondary }}>פעילים</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, tab === 'archive' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+          onPress={() => setTab('archive')}
+        >
+          <Text variant="h3" style={{ color: tab === 'archive' ? colors.primary : colors.textSecondary }}>ארכיון</Text>
+        </Pressable>
+      </View>
+
       {habits.length === 0 ? (
         <EmptyState
-          emoji="📋"
-          title="אין עדיין הרגלים"
-          subtitle="הוסף הרגל ראשון כדי להתחיל לבנות את הזהות שלך"
-          actionLabel="הוסף הרגל"
-          onAction={onAddHabit}
+          emoji={tab === 'archive' ? '📦' : '📋'}
+          title={tab === 'archive' ? 'אין הרגלים בארכיון' : 'אין עדיין הרגלים'}
+          subtitle={tab === 'archive' ? 'הרגלים שארכוב יופיעו כאן' : 'הוסף הרגל ראשון כדי להתחיל לבנות את הזהות שלך'}
+          actionLabel={tab === 'archive' ? undefined : 'הוסף הרגל'}
+          onAction={tab === 'archive' ? undefined : onAddHabit}
         />
       ) : (
         <FlatList
@@ -95,6 +116,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginRight: 8,
   },
   list: { paddingHorizontal: 20 },
   card: {

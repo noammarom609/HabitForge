@@ -397,6 +397,7 @@ export const updateHabit = mutation({
     frictionNotes: v.optional(v.string()),
     identityId: v.optional(v.id("identities")),
     reminderTime: v.optional(v.string()),
+    reminderEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireUser(ctx);

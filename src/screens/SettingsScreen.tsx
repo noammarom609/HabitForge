@@ -113,6 +113,24 @@ export function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
         </Pressable>
+        <Pressable style={styles.row} onPress={() => navigation.navigate(Routes.CalendarHeatmap)}>
+          <View style={styles.rowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.primaryBg }]}>
+              <Ionicons name="calendar" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>לוח שנה</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+        </Pressable>
+        <Pressable style={styles.row} onPress={() => navigation.navigate(Routes.HabitHealthScore)}>
+          <View style={styles.rowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.primaryBg }]}>
+              <Ionicons name="heart" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>בריאות</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+        </Pressable>
       </View>
 
       <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>אודות</Text>
@@ -126,6 +144,15 @@ export function SettingsScreen() {
           </View>
           <Text style={[styles.rowValue, { color: colors.textSecondary }]}>3.0.0</Text>
         </View>
+        <Pressable style={styles.row} onPress={() => navigation.navigate(Routes.Feedback)}>
+          <View style={styles.rowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.primaryBg }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>השארת פידבק</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+        </Pressable>
         <Pressable style={styles.row}>
           <View style={styles.rowLeft}>
             <View style={[styles.iconCircle, { backgroundColor: colors.dangerBg }]}>

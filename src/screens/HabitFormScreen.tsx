@@ -463,11 +463,11 @@ export function HabitFormScreen() {
             <View style={styles.dangerZone}>
               <Pressable style={[styles.dangerBtn, { borderColor: colors.warning }]} onPress={onArchive}>
                 <Ionicons name="archive-outline" size={18} color={colors.warning} />
-                <Text style={[styles.dangerBtnText, { color: colors.warning }]}>Archive</Text>
+                <Text style={[styles.dangerBtnText, { color: colors.warning }]}>ארכב</Text>
               </Pressable>
               <Pressable style={[styles.dangerBtn, { borderColor: colors.danger }]} onPress={onDelete}>
                 <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                <Text style={[styles.dangerBtnText, { color: colors.danger }]}>Delete</Text>
+                <Text style={[styles.dangerBtnText, { color: colors.danger }]}>מחק</Text>
               </Pressable>
             </View>
           </>

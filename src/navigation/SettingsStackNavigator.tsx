@@ -12,6 +12,9 @@ import { ThemeScreen } from '../screens/settings/ThemeScreen';
 import { PrivacyScreen } from '../screens/settings/PrivacyScreen';
 import { SupportScreen } from '../screens/settings/SupportScreen';
 import { DataBackupRestoreScreen } from '../screens/settings/DataBackupRestoreScreen';
+import { FeedbackScreen } from '../screens/settings/FeedbackScreen';
+import { CalendarHeatmapScreen } from '../screens/insights/CalendarHeatmapScreen';
+import { HabitHealthScoreScreen } from '../screens/insights/HabitHealthScoreScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -34,6 +37,9 @@ export function SettingsStackNavigator() {
       <Stack.Screen name={Routes.Support} component={SupportScreen} />
       <Stack.Screen name={Routes.IntegrationsHub} component={IntegrationsHubScreen} />
       <Stack.Screen name={Routes.DataBackupRestore} component={DataBackupRestoreScreen} />
+      <Stack.Screen name={Routes.Feedback} component={FeedbackScreen} />
+      <Stack.Screen name={Routes.CalendarHeatmap} component={CalendarHeatmapScreen} />
+      <Stack.Screen name={Routes.HabitHealthScore} component={HabitHealthScoreScreen} />
     </Stack.Navigator>
   );
 }

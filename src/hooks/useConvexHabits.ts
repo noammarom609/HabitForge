@@ -75,6 +75,31 @@ export function useAuthDebug() {
   return useQuery(api.habits.getAuthDebug);
 }
 
+// ═══════ Weekly Reviews ═══════
+
+export function useWeeklyReview(weekStart?: string) {
+  return useQuery(api.weeklyReviews.getWeeklyReview, { weekStart });
+}
+
+export function useSaveWeeklyReview() {
+  return useMutation(api.weeklyReviews.saveWeeklyReview);
+}
+
+// ═══════ Motivation Vault ═══════
+
+export function useMotivationReminders() {
+  const data = useQuery(api.motivationVault.getMotivationReminders);
+  return { reminders: data ?? [], isLoading: data === undefined };
+}
+
+export function useAddMotivationReminder() {
+  return useMutation(api.motivationVault.addMotivationReminder);
+}
+
+export function useDeleteMotivationReminder() {
+  return useMutation(api.motivationVault.deleteMotivationReminder);
+}
+
 // ═══════ Mutations ═══════
 
 export function useCreateHabit() { return useMutation(api.habits.createHabit); }
