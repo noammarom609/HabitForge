@@ -148,42 +148,82 @@ export function AuthScreen() {
   // ── Clear error on input change ──
   useEffect(() => { setError(''); }, [mode, email, password, confirmPassword]);
 
+  // ── Web OAuth callback error (from handleRedirectCallback failure) ──
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
+    const oauthErr = sessionStorage.getItem('oauth_error');
+    if (oauthErr) {
+      sessionStorage.removeItem('oauth_error');
+      setError(oauthErr.includes('username') || oauthErr.includes('required')
+        ? 'נדרש להשלים פרטים. ב-Clerk Dashboard: הפוך את username לאופציונלי (User & Authentication → Email, Phone, Username).'
+        : oauthErr);
+    }
+  }, []);
+
   // ═══════════════════════════════════════
   // GOOGLE SIGN-IN
   // ═══════════════════════════════════════
   const signInWithGoogle = useCallback(async () => {
-    if (!signIn) return;
     try {
       setLoading(true);
       setError('');
 
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // Web: full-page redirect (avoids COOP popup issues)
+        // Web: full-page redirect. Use signUp for new users (sign-up screen), signIn for returning users.
         const origin = window.location.origin;
-        await signIn.authenticateWithRedirect({
-          strategy: 'oauth_google',
+        const redirectOpts = {
+          strategy: 'oauth_google' as const,
           redirectUrl: `${origin}/`,
           redirectUrlComplete: `${origin}/`,
-        });
+        };
+        if (isSignUp && signUp?.authenticateWithRedirect) {
+          await signUp.authenticateWithRedirect(redirectOpts);
+        } else if (signIn) {
+          await signIn.authenticateWithRedirect(redirectOpts);
+        }
         return; // Page will redirect
       }
 
       // Native: popup via WebBrowser
       const redirectUrl = Linking.createURL('/', { scheme: 'habitforge' });
-      const { createdSessionId, setActive } = await startSSOFlow({
+      const { createdSessionId, setActive, signIn: ssoSignIn, signUp: ssoSignUp } = await startSSOFlow({
         strategy: 'oauth_google',
         redirectUrl,
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
+      } else if (ssoSignUp && setActive) {
+        // Known Clerk Expo bug: new users get empty createdSessionId when username/required fields are missing.
+        // Complete sign-up by setting username (from email prefix) then activate session.
+        try {
+          const email = ssoSignUp.emailAddress ?? ssoSignUp.verifiedExternalAccounts?.[0]?.emailAddress ?? '';
+          const username = email ? email.split('@')[0] : `user_${Date.now()}`;
+          const updated = await ssoSignUp.update({ username });
+          const sid = updated?.createdSessionId ?? ssoSignUp.createdSessionId;
+          if ((updated?.status ?? ssoSignUp.status) === 'complete' && sid) {
+            await setActive({ session: sid });
+            navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
+          } else {
+            setError('נדרש להשלים פרטים. בדוק בהגדרות Clerk שהשדה username אופציונלי.');
+          }
+        } catch (updateErr: any) {
+          const code = updateErr?.errors?.[0]?.code;
+          if (code === 'form_param_format_invalid' || code === 'form_identifier_exists') {
+            setError('שם המשתמש כבר תפוס או לא תקין. נסה ב-Clerk Dashboard להפוך את username לאופציונלי.');
+          } else {
+            setError(clerkErrorToHebrew(updateErr));
+          }
+        }
+      } else if (ssoSignIn?.firstFactorVerification?.error?.code === 'external_account_not_found') {
+        setError('חשבון Google לא מזוהה. נסה ב-Clerk Dashboard להפוך את username לאופציונלי.');
       }
     } catch (err: any) {
       setError(clerkErrorToHebrew(err));
     } finally {
       setLoading(false);
     }
-  }, [signIn, startSSOFlow, navigation]);
+  }, [signIn, signUp, isSignUp, startSSOFlow, navigation]);
 
   // ═══════════════════════════════════════
   // SIGN IN (email + password)
@@ -333,10 +373,6 @@ export function AuthScreen() {
     }
     if (isSignUp) await onSignUp();
     else await onSignIn();
-  };
-
-  const onSkip = () => {
-    navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
   };
 
   // ═══════════════════════════════════════
@@ -602,10 +638,6 @@ export function AuthScreen() {
           </Pressable>
         </View>
 
-        {/* Skip */}
-        <Pressable style={({ pressed }) => [styles.skipBtn, pressed && styles.skipPressed]} onPress={onSkip}>
-          <Text style={[styles.skipText, { color: colors.textTertiary }]}>המשך בלי חשבון</Text>
-        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -672,10 +704,6 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 20 },
   toggleText: { fontSize: 14 },
   toggleLink: { fontSize: 14, fontWeight: '600' },
-
-  skipBtn: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  skipPressed: { opacity: 0.7 },
-  skipText: { fontSize: 14 },
 
   backBtn: { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   backText: { fontSize: 14 },

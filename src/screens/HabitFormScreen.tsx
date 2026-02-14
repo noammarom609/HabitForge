@@ -1,4 +1,3 @@
-import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,8 +14,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import uuid from 'react-native-uuid';
-
 import { Id } from '../../convex/_generated/dataModel';
 import {
   useArchiveHabit,
@@ -26,14 +23,7 @@ import {
   useIdentities,
   useUpdateHabit,
 } from '../hooks/useConvexHabits';
-import {
-  archiveHabit as archiveHabitLegacy,
-  deleteHabit as deleteHabitLegacy,
-  loadHabits,
-  saveHabits,
-} from '../data/storage';
-import { Habit as LegacyHabit } from '../domain/types';
-import { RootStackParamList } from '../navigation/RootNavigator';
+import type { RootStackParamList } from '../navigation/types';
 import {
   cancelHabitNotifications,
   scheduleHabitNotifications,
@@ -62,12 +52,8 @@ export function HabitFormScreen() {
   const route = useRoute<R>();
   const { colors } = useTheme();
 
-  const { isSignedIn, isLoaded: authLoaded } = useAuth();
-  const useConvex = authLoaded && isSignedIn;
-
-  const habitId = route.params?.habitId;
+  const habitId = route.params?.habitId as Id<'habits'> | undefined;
   const isEditing = useMemo(() => !!habitId, [habitId]);
-  const isConvexId = useMemo(() => habitId && !habitId.includes('-'), [habitId]);
 
   // Convex
   const createHabitMutation = useCreateHabit();
@@ -75,7 +61,7 @@ export function HabitFormScreen() {
   const archiveHabitMutation = useArchiveHabit();
   const deleteHabitMutation = useDeleteHabit();
   const { habit: convexHabit, isLoading: convexLoading } = useHabitWithEntries(
-    isConvexId && isEditing ? (habitId as Id<'habits'>) : null
+    isEditing ? habitId! : null
   );
   const { identities } = useIdentities();
 
@@ -92,7 +78,6 @@ export function HabitFormScreen() {
   const [frictionNotes, setFrictionNotes] = useState('');
   const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [legacyLoaded, setLegacyLoaded] = useState(false);
 
   // ─── Header ───
   useEffect(() => {
@@ -104,9 +89,8 @@ export function HabitFormScreen() {
     });
   }, [isEditing, navigation, colors]);
 
-  // Load Convex data
   useEffect(() => {
-    if (convexHabit && isConvexId) {
+    if (convexHabit) {
       setName(convexHabit.title);
       setDays(convexHabit.scheduleType === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : (convexHabit.daysOfWeek || []));
       setColor(convexHabit.color || HABIT_COLORS[0]);
@@ -118,23 +102,7 @@ export function HabitFormScreen() {
       setReminderTime(convexHabit.reminderTime || '');
       setSelectedIdentityId(convexHabit.identityId || null);
     }
-  }, [convexHabit, isConvexId]);
-
-  // Load legacy
-  useEffect(() => {
-    if (!habitId || isConvexId || legacyLoaded) return;
-    (async () => {
-      const all = await loadHabits();
-      const found = all.find((h) => h.id === habitId);
-      if (!found) return;
-      setName(found.name);
-      setDays(found.daysOfWeek);
-      setReminderTime(found.reminderTime || '');
-      setColor(found.color || HABIT_COLORS[0]);
-      setIcon(found.icon || HABIT_ICONS[0]);
-      setLegacyLoaded(true);
-    })();
-  }, [habitId, isConvexId, legacyLoaded]);
+  }, [convexHabit]);
 
   const toggleDay = (d: number) => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
@@ -163,44 +131,38 @@ export function HabitFormScreen() {
 
     setLoading(true);
     try {
-      if (useConvex) {
-        const isDaily = days.length === 7;
-        const payload = {
-          title: trimmed,
-          scheduleType: (isDaily ? 'daily' : 'weekly') as 'daily' | 'weekly',
-          daysOfWeek: isDaily ? undefined : days,
-          color,
-          icon,
-          cue: cue || undefined,
-          minimumAction: minimumAction || undefined,
-          reward: reward || undefined,
-          frictionNotes: frictionNotes || undefined,
-          identityId: selectedIdentityId ? (selectedIdentityId as Id<'identities'>) : undefined,
-          reminderTime: reminderTime || undefined,
-        };
-        if (isEditing && isConvexId) {
-          await updateHabitMutation({ habitId: habitId as Id<'habits'>, ...payload });
-        } else {
-          await createHabitMutation(payload);
-        }
+      const isDaily = days.length === 7;
+      const payload = {
+        title: trimmed,
+        scheduleType: (isDaily ? 'daily' : 'weekly') as 'daily' | 'weekly',
+        daysOfWeek: isDaily ? undefined : days,
+        color,
+        icon,
+        cue: cue || undefined,
+        minimumAction: minimumAction || undefined,
+        reward: reward || undefined,
+        frictionNotes: frictionNotes || undefined,
+        identityId: selectedIdentityId ? (selectedIdentityId as Id<'identities'>) : undefined,
+        reminderTime: reminderTime || undefined,
+      };
+      let savedHabitId: string;
+      if (isEditing && habitId) {
+        await updateHabitMutation({ habitId, ...payload });
+        savedHabitId = habitId;
       } else {
-        // Legacy path
-        const all = await loadHabits();
-        let habit: LegacyHabit;
-        if (habitId && !isConvexId) {
-          const existing = all.find((h) => h.id === habitId);
-          if (!existing) return;
-          habit = { ...existing, name: trimmed, daysOfWeek: days, reminderTime: reminderTime || null, color, icon };
-          await saveHabits(all.map((h) => (h.id === habitId ? habit : h)));
-        } else {
-          habit = {
-            id: String(uuid.v4()), name: trimmed, daysOfWeek: days,
-            reminderTime: reminderTime || null, color, icon, createdAt: Date.now(), isArchived: false,
-          };
-          await saveHabits([habit, ...all]);
-        }
-        if (habit.reminderTime) await scheduleHabitNotifications(habit);
-        else await cancelHabitNotifications(habit.id);
+        savedHabitId = await createHabitMutation(payload);
+      }
+      if (reminderTime) {
+        await scheduleHabitNotifications({
+          id: savedHabitId,
+          name: trimmed,
+          reminderTime,
+          daysOfWeek: days,
+          createdAt: Date.now(),
+          isArchived: false,
+        });
+      } else {
+        await cancelHabitNotifications(savedHabitId);
       }
       navigation.goBack();
     } catch (error) {
@@ -214,8 +176,8 @@ export function HabitFormScreen() {
   const doArchive = async () => {
     if (!habitId) return;
     try {
-      if (useConvex && isConvexId) await archiveHabitMutation({ habitId: habitId as Id<'habits'> });
-      else { await archiveHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+      await archiveHabitMutation({ habitId });
+      await cancelHabitNotifications(habitId);
       navigation.goBack();
     } catch (e) {
       console.error(e);
@@ -226,8 +188,8 @@ export function HabitFormScreen() {
   const doDelete = async () => {
     if (!habitId) return;
     try {
-      if (useConvex && isConvexId) await deleteHabitMutation({ habitId: habitId as Id<'habits'> });
-      else { await deleteHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+      await deleteHabitMutation({ habitId });
+      await cancelHabitNotifications(habitId);
       navigation.goBack();
     } catch (e) {
       console.error(e);
@@ -261,8 +223,7 @@ export function HabitFormScreen() {
     }
   };
 
-  // Loading
-  if (isConvexId && isEditing && convexLoading) {
+  if (isEditing && convexLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -378,25 +339,23 @@ export function HabitFormScreen() {
             </View>
 
             {/* Cue / Trigger */}
-            {useConvex && (
-              <>
-                <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
-                  TRIGGER (AFTER I...)
-                </Text>
-                <TextInput
-                  placeholder="e.g., After I brush my teeth"
-                  placeholderTextColor={colors.placeholder}
-                  value={cue}
-                  onChangeText={setCue}
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                />
-              </>
-            )}
+            <>
+              <Text style={[styles.label, styles.sectionGap, { color: colors.textSecondary }]}>
+                TRIGGER (AFTER I...)
+              </Text>
+              <TextInput
+                placeholder="e.g., After I brush my teeth"
+                placeholderTextColor={colors.placeholder}
+                value={cue}
+                onChangeText={setCue}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              />
+            </>
           </>
         )}
 
         {/* ══════ STEP 3: HOW ══════ */}
-        {(step === 'How' || isEditing) && useConvex && (
+        {(step === 'How' || isEditing) && (
           <>
             {!isEditing && (
               <Text style={[styles.stepTitle, { color: colors.text }]}>How will you succeed?</Text>

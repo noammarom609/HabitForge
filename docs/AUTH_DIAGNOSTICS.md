@@ -35,21 +35,44 @@
 | 4 | handleRedirectCallback | נכשל או לא רץ | בדוק Console לשגיאות "[WebOAuthCallbackHandler] handleRedirectCallback failed" |
 | 5 | JWT template | אין template "convex" ב-Clerk | Clerk Dashboard → JWT Templates |
 | 6 | Convex env | CLERK_JWT_ISSUER_DOMAIN לא מוגדר | Convex Dashboard → Settings → Environment Variables |
+| 7 | **שדות חובה** | username/שדות אחרים חובה — משתמשים חדשים לא נוצרים | Clerk Dashboard → User & Authentication → הפוך username לאופציונלי |
 
 ---
 
 ## צעדי תיקון חובה
+
+### 0. Clerk Dashboard — שדות חובה (גורם #1 למשתמשים חדשים שלא נוצרים!)
+
+**באג ידוע ב-Clerk**: כשהשדה `username` (או שדות אחרים) מוגדרים כ-**חובה** ב-Clerk, משתמשים חדשים דרך Google לא נוצרים — גם ב-Web וגם ב-Native.
+
+1. היכנס ל-[Clerk Dashboard](https://dashboard.clerk.com) → האפליקציה שלך
+2. עבור ל-**User & Authentication** → **Email, Phone, Username**
+3. **הפוך את `username` לאופציונלי** (Optional) — או וודא שהאפליקציה מספקת אותו
+4. אם יש שדות חובה נוספים (טלפון וכו') — הפוך לאופציונלי לבדיקה
+
+**פתרון בקוד**:
+- **Native**: fallback ב-`AuthScreen` — כשמשתמש חדש חוזר מ-Google בלי `createdSessionId`, הקוד מנסה להשלים עם `signUp.update({ username })`. אם זה נכשל, יוצגת הודעה להפוך את username לאופציונלי.
+- **Web**: שימוש ב-`signUp.authenticateWithRedirect` when on sign-up screen — כך Clerk מטפל נכון ב-flow של משתמשים חדשים. אם `handleRedirectCallback` נכשל — השגיאה מוצגת על מסך Auth.
+
+---
+
+### 0. Clerk Dashboard — Paths (Sign-in/Sign-up URL)
+
+אם ההתחברות מפנה לדף Clerk (Account Portal) במקום לממשק שלנו:
+1. Clerk Dashboard → **Configure** → **Paths**
+2. הגדר **Sign-in URL** ו-**Sign-up URL** ל־URL של האפליקציה (למשל `http://localhost:8084/`)
+3. או הוסף ל־`.env.local`: `EXPO_PUBLIC_CLERK_SIGN_IN_URL=/` ו־`EXPO_PUBLIC_CLERK_SIGN_UP_URL=/`
 
 ### 1. Clerk Dashboard — Redirect URLs
 
 1. היכנס ל-[Clerk Dashboard](https://dashboard.clerk.com)
 2. בחר את האפליקציה (enabling-crawdad-39)
 3. עבור ל-**Paths** או **Redirect URLs** (תלוי בגרסה)
-4. הוסף בדיוק:
+4. הוסף בדיוק (כולל הפורט שבו אתה מריץ):
    - `http://localhost:8081/`
-   - `http://localhost:8083/`
+   - `http://localhost:8085/`
    - `http://localhost:8081`
-   - `http://localhost:8083`
+   - `http://localhost:8085`
 5. עבור **פרודקשן** — הוסף את ה-URL המלא של האתר
 
 ### 2. Clerk Dashboard — JWT Template "convex"
@@ -82,6 +105,7 @@
 1. **הרחבת זיהוי params** — Regex מזהה כעת: `__clerk`, `rotating_token_nonce`, `code=`, `state=`
 2. **לוג דיבוג** — ב-__DEV__ מודפס כשמזוהה callback
 3. **שגיאות לא נבלעות** — handleRedirectCallback failures נשלחות ל-console.error
+4. **טיפול בחזרה מ-Google (Web)** — RootNavigator מזהה OAuth return, מציג "מסיים התחברות..." עד שהסשן מוכן, ואז מעביר ישירות ל-AppTabs. אם אחרי 8 שניות אין סשן — מעביר ל-Auth לניסיון חוזר.
 
 ---
 

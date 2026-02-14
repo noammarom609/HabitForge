@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@clerk/clerk-expo';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -21,9 +20,6 @@ import {
   useSeedHabits,
   useToggleHabit,
 } from '../hooks/useConvexHabits';
-import { loadCompletions, loadHabits, toggleCompletion } from '../data/storage';
-import { calculateStreak, formatDate, getDayOfWeek } from '../data/streaks';
-import { Completion, Habit as LegacyHabit } from '../domain/types';
 import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
 import { Id } from '../../convex/_generated/dataModel';
@@ -85,10 +81,6 @@ export function HomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { isSignedIn, isLoaded: authLoaded } = useAuth();
-  const useConvex = authLoaded && isSignedIn;
-
-  // Convex Command Center
   const today = getTodayDate();
   const {
     habits: convexHabits,
@@ -102,81 +94,35 @@ export function HomeScreen() {
   const toggleMutation = useToggleHabit();
   const seedMutation = useSeedHabits();
 
-  // Legacy fallback
-  const [legacyHabits, setLegacyHabits] = useState<LegacyHabit[]>([]);
-  const [legacyCompletions, setLegacyCompletions] = useState<Completion[]>([]);
-  const [legacyLoading, setLegacyLoading] = useState(false);
-  const legacyToday = formatDate(new Date());
-
-  const refreshLegacy = useCallback(async () => {
-    setLegacyLoading(true);
-    try {
-      const [h, c] = await Promise.all([loadHabits(), loadCompletions()]);
-      setLegacyHabits(h.filter((x) => !x.isArchived && x.daysOfWeek.includes(getDayOfWeek())));
-      setLegacyCompletions(c);
-    } finally {
-      setLegacyLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(useCallback(() => {
-    if (authLoaded && !isSignedIn) refreshLegacy();
-  }, [authLoaded, isSignedIn, refreshLegacy]));
-
   // Undo state
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoHabit, setUndoHabit] = useState<{ id: string; name: string } | null>(null);
   const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null);
 
-  const isLoading = !authLoaded || (useConvex ? convexLoading : legacyLoading);
+  const isLoading = convexLoading;
 
-  // ─── Unified habit list ───
-  const habits = useMemo(() => {
-    if (useConvex) {
-      return convexHabits.map((h) => ({
-        id: h._id as string,
-        name: h.title,
-        color: h.color,
-        icon: h.icon,
-        cue: h.cue,
-        minimumAction: h.minimumAction,
-        reward: h.reward,
-        isCompleted: isHabitDone(entries, h._id),
-        isSkipped: entries.some((e) => e.habitId === h._id && e.status === 'skipped'),
-        streak: stats.streaks[h._id]?.current ?? 0,
-        consistency: stats.streaks[h._id]?.consistency30 ?? 0,
-        isConvex: true,
-      }));
-    }
-    return legacyHabits.map((h) => ({
-      id: h.id,
-      name: h.name,
+  const habits = useMemo(() =>
+    convexHabits.map((h) => ({
+      id: h._id as string,
+      name: h.title,
       color: h.color,
       icon: h.icon,
-      cue: undefined as string | undefined,
-      minimumAction: undefined as string | undefined,
-      reward: undefined as string | undefined,
-      isCompleted: legacyCompletions.some((c) => c.habitId === h.id && c.date === legacyToday && c.completed),
-      isSkipped: false,
-      streak: calculateStreak(h, legacyCompletions),
-      consistency: 0,
-      isConvex: false,
-    }));
-  }, [useConvex, convexHabits, entries, stats, legacyHabits, legacyCompletions, legacyToday]);
+      cue: h.cue,
+      minimumAction: h.minimumAction,
+      reward: h.reward,
+      isCompleted: isHabitDone(entries, h._id),
+      isSkipped: entries.some((e) => e.habitId === h._id && e.status === 'skipped'),
+      streak: stats.streaks[h._id]?.current ?? 0,
+      consistency: stats.streaks[h._id]?.consistency30 ?? 0,
+    })),
+  [convexHabits, entries, stats]);
 
-  // ─── Toggle ───
-  const onToggle = async (habitId: string, isConvex: boolean, status: 'done' | 'skipped', habitName: string) => {
+  const onToggle = async (habitId: string, status: 'done' | 'skipped', habitName: string) => {
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
-
-    if (isConvex) {
-      const result = await toggleMutation({ habitId: habitId as Id<"habits">, date: today, status });
-      if (status === 'done' && result?.action === 'created') {
-        setUndoHabit({ id: habitId, name: habitName });
-        setUndoVisible(true);
-      }
-    } else {
-      await toggleCompletion(habitId, legacyToday);
-      await refreshLegacy();
+    const result = await toggleMutation({ habitId: habitId as Id<"habits">, date: today, status });
+    if (status === 'done' && result?.action === 'created') {
+      setUndoHabit({ id: habitId, name: habitName });
+      setUndoVisible(true);
     }
   };
 
@@ -253,7 +199,7 @@ export function HomeScreen() {
               {!done && !skipped && (
                 <Pressable
                   style={[styles.skipBtn, { borderColor: colors.border }]}
-                  onPress={() => onToggle(item.id, item.isConvex, 'skipped', item.name)}
+                  onPress={() => onToggle(item.id, 'skipped', item.name)}
                 >
                   <Ionicons name="play-skip-forward" size={14} color={colors.textTertiary} />
                 </Pressable>
@@ -266,7 +212,7 @@ export function HomeScreen() {
                     borderColor: done ? colors.success : skipped ? colors.warning : colors.border,
                   },
                 ]}
-                onPress={() => onToggle(item.id, item.isConvex, done ? 'done' : 'done', item.name)}
+                onPress={() => onToggle(item.id, done ? 'done' : 'done', item.name)}
               >
                 {done && <Ionicons name="checkmark" size={18} color="#FFF" />}
                 {skipped && <Ionicons name="play-skip-forward" size={14} color="#FFF" />}
@@ -343,7 +289,7 @@ export function HomeScreen() {
         ListHeaderComponent={
           <>
             {/* ──── Identity banner ──── */}
-            {activeIdentity && useConvex && (
+            {activeIdentity && (
               <View style={[styles.identityBanner, { backgroundColor: colors.primaryBg }]}>
                 <Text style={[styles.identityText, { color: colors.primary }]}>
                   היום אתה הופך ל: <Text style={styles.identityBold}>{activeIdentity.label}</Text>
@@ -352,7 +298,7 @@ export function HomeScreen() {
             )}
 
             {/* ──── Top Insight ──── */}
-            {insight && useConvex && totalCount > 0 && (
+            {insight && totalCount > 0 && (
               <View style={[styles.insightCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.insightDot, { backgroundColor: missedYesterday ? colors.warning : colors.primary }]} />
                 <Text style={[styles.insightText, { color: colors.text }]}>
@@ -362,12 +308,12 @@ export function HomeScreen() {
             )}
 
             {/* ──── Recovery CTA ──── */}
-            {missedYesterday && useConvex && completedCount === 0 && totalCount > 0 && (
+            {missedYesterday && completedCount === 0 && totalCount > 0 && (
               <Pressable
                 style={[styles.recoveryCTA, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '40' }]}
                 onPress={() => {
                   const first = habits[0];
-                  if (first) onToggle(first.id, first.isConvex, 'done', first.name);
+                  if (first) onToggle(first.id, 'done', first.name);
                 }}
               >
                 <Ionicons name="arrow-redo" size={20} color={colors.warning} />
@@ -416,7 +362,7 @@ export function HomeScreen() {
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               כל הרגל הוא קול למי שאתה רוצה להיות.{'\n'}לחץ + ליצירת ההרגל הראשון.
             </Text>
-            {__DEV__ && isSignedIn && (
+            {__DEV__ && (
               <Pressable
                 style={[styles.seedBtn, { backgroundColor: colors.primary }]}
                 onPress={() => seedMutation({})}

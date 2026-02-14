@@ -1,18 +1,9 @@
-import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { loadCompletions, loadHabits } from '../data/storage';
-import {
-    calculateStreak,
-    completionRate,
-    longestStreak,
-    weeklyData,
-} from '../data/streaks';
-import { Completion, Habit } from '../domain/types';
 import { useInsights } from '../hooks/useConvexHabits';
 import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
@@ -22,37 +13,9 @@ export function StatsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
-  const { isSignedIn, isLoaded: authLoaded } = useAuth();
-  const useConvex = authLoaded && isSignedIn;
+  const { data: insights } = useInsights();
 
-  // Convex insights
-  const { data: insights, isLoading: convexLoading } = useInsights();
-
-  // Legacy
-  const [legacyHabits, setLegacyHabits] = useState<Habit[]>([]);
-  const [legacyCompletions, setLegacyCompletions] = useState<Completion[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!useConvex) {
-        (async () => {
-          const [h, c] = await Promise.all([loadHabits(), loadCompletions()]);
-          setLegacyHabits(h.filter((x) => !x.isArchived));
-          setLegacyCompletions(c);
-        })();
-      }
-    }, [useConvex])
-  );
-
-  // Legacy weekly data
-  const legacyWeekly = weeklyData(legacyHabits, legacyCompletions);
-  const legacyTotalScheduled = legacyWeekly.reduce((acc, d) => acc + d.total, 0);
-  const legacyTotalCompleted = legacyWeekly.reduce((acc, d) => acc + d.completed, 0);
-  const legacyWeeklyRate = legacyTotalScheduled > 0 ? Math.round((legacyTotalCompleted / legacyTotalScheduled) * 100) : 0;
-
-  const hasData = useConvex
-    ? (insights?.habits?.length ?? 0) > 0
-    : legacyHabits.length > 0;
+  const hasData = (insights?.habits?.length ?? 0) > 0;
 
   if (!hasData) {
     return (
@@ -66,22 +29,9 @@ export function StatsScreen() {
     );
   }
 
-  // Determine data source
-  const weeklyDataArr = useConvex
-    ? (insights?.weeklyData ?? [])
-    : legacyWeekly;
-  const weeklyRate = useConvex ? (insights?.weeklyRate ?? 0) : legacyWeeklyRate;
-  const perHabitData = useConvex
-    ? (insights?.perHabit ?? [])
-    : legacyHabits.map((h) => ({
-        habitId: h.id,
-        title: h.name,
-        icon: h.icon || '🎯',
-        color: h.color || '#6366F1',
-        current: calculateStreak(h, legacyCompletions),
-        longest: longestStreak(h, legacyCompletions),
-        consistency30: completionRate(h, legacyCompletions, 30),
-      }));
+  const weeklyDataArr = insights?.weeklyData ?? [];
+  const weeklyRate = insights?.weeklyRate ?? 0;
+  const perHabitData = insights?.perHabit ?? [];
 
   return (
     <ScrollView
@@ -91,7 +41,7 @@ export function StatsScreen() {
       <Text style={[styles.screenTitle, { color: colors.text }]}>תובנות</Text>
 
       {/* ──── Improvement Tip ──── */}
-      {useConvex && insights?.improvementTip && (
+      {insights?.improvementTip && (
         <Pressable
           style={[styles.tipCard, { backgroundColor: colors.primaryBg, borderColor: colors.primary + '30' }]}
           onPress={() => navigation.navigate(Routes.HabitForm)}
@@ -138,8 +88,8 @@ export function StatsScreen() {
         </View>
       </View>
 
-      {/* ──── Pattern Insights (Convex only) ──── */}
-      {useConvex && (
+      {/* ──── Pattern Insights ──── */}
+      {insights && (
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>הדפוסים שלך</Text>
 

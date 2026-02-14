@@ -31,8 +31,9 @@ interface ConvexClerkProviderProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // OAuth callback URL param patterns (Clerk may use query or hash)
 // Broad match to avoid missing the callback — session won't be created otherwise
+// Exported for use in RootNavigator (OAuth return flow)
 // ─────────────────────────────────────────────────────────────────────────────
-function hasOAuthCallbackParams(): boolean {
+export function hasOAuthCallbackParams(): boolean {
   if (typeof window === "undefined") return false;
   const search = window.location.search;
   const hash = window.location.hash;
@@ -77,15 +78,20 @@ function WebOAuthCallbackHandler({ children }: { children: ReactNode }) {
       .handleRedirectCallback({
         signInFallbackRedirectUrl: origin,
         signUpFallbackRedirectUrl: origin,
+        continueSignUpUrl: origin, // If Clerk needs more info (e.g. username), redirect here
       })
       .then(() => {
         if (typeof window !== "undefined") {
+          sessionStorage.removeItem("oauth_error");
           window.history.replaceState({}, "", window.location.origin + "/");
+          if (__DEV__) console.log("[WebOAuthCallback] handleRedirectCallback succeeded");
         }
       })
       .catch((err) => {
+        const msg = err?.message || String(err);
         console.error("[WebOAuthCallbackHandler] handleRedirectCallback failed:", err);
         if (typeof window !== "undefined") {
+          sessionStorage.setItem("oauth_error", msg);
           window.history.replaceState({}, "", window.location.origin + "/");
         }
       });
@@ -111,8 +117,17 @@ export function ConvexClerkProvider({ children }: ConvexClerkProviderProps) {
       content
     );
 
+  // signInUrl/signUpUrl: tell Clerk to use our app's auth UI, not the hosted Account Portal
+  const signInUrl = process.env.EXPO_PUBLIC_CLERK_SIGN_IN_URL ?? "/";
+  const signUpUrl = process.env.EXPO_PUBLIC_CLERK_SIGN_UP_URL ?? "/";
+
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}
+      signInUrl={signInUrl}
+      signUpUrl={signUpUrl}
+    >
       <ClerkLoaded>{withOAuthHandler}</ClerkLoaded>
     </ClerkProvider>
   );
