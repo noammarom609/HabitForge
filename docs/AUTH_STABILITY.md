@@ -34,10 +34,11 @@ Convex מקבל token דרך `getToken({ template: "convex" })`. **חובה** ש
 ### משתני סביבה ב־Convex
 - `CLERK_JWT_ISSUER_DOMAIN` = ה־Issuer מ־Clerk (למשל `https://enabling-crawdad-39.clerk.accounts.dev`)
 
-### Redirect URLs ב־Clerk
-- Sign-in redirect: `http://localhost:8081/` (פיתוח)
-- Sign-up redirect: `http://localhost:8081/`
-- עבור פרודקשן: להגדיר את ה־URL של האתר
+### Redirect URLs ב־Clerk (חובה!)
+- היכנס ל־Clerk Dashboard → Paths / Redirect URLs
+- הוסף: `http://localhost:8081/`, `http://localhost:8083/` (פיתוח)
+- עבור פרודקשן: הוסף את ה־URL המלא של האתר
+- **בלי זה — OAuth לא יעבוד**
 
 ---
 
@@ -65,12 +66,30 @@ Convex מקבל token דרך `getToken({ template: "convex" })`. **חובה** ש
 - **פתרון**: לוודא ב־Clerk Dashboard שיש template בשם "convex" עם Convex preset
 
 ### Session לא מתעדכן אחרי Google redirect
-- לוודא ש־`handleRedirectCallback` רץ כשחוזרים (params: `__clerk`, `code=`, `state=`)
+- לוודא ש־`handleRedirectCallback` רץ כשחוזרים (params: `__clerk`, `__clerk_ticket`, `code=`, `state=`)
 - אם Clerk משתמש ב־hash במקום query, ה־regex כבר בודק גם `hash`
+
+### לולאת רענון אחרי התחברות
+- נפתר: `handleRedirectCallback` נקרא רק כשיש params ב־URL + ref מונע קריאות כפולות
 
 ---
 
-## 5. קובצי מפתח
+## 5. צ'קליסט לפני פריסה
+
+- [ ] JWT template "convex" קיים ב־Clerk Dashboard
+- [ ] CLERK_JWT_ISSUER_DOMAIN מוגדר ב־Convex
+- [ ] Redirect URLs מוגדרים ב־Clerk (localhost + production)
+- [ ] בדיקת הרשמה עם אימייל
+- [ ] בדיקת התחברות עם Google (web)
+- [ ] בדיקת התנתקות
+
+---
+
+## 6. אבחון בעיות
+
+ראה `docs/AUTH_DIAGNOSTICS.md` — מדריך מפורט לאבחון כשהחיבור "עובר" אבל סשן לא נוצר.
+
+## 7. קובצי מפתח
 
 - `src/providers/ConvexClerkProvider.tsx` — Clerk + Convex + WebOAuthCallbackHandler
 - `src/screens/AuthScreen.tsx` — הרשמה/התחברות

@@ -1,8 +1,13 @@
 /**
  * Combined Convex + Clerk Provider
  *
- * This provider integrates Clerk authentication with Convex.
- * The Convex client receives authenticated tokens from Clerk.
+ * Wraps the app with Clerk authentication and Convex backend.
+ * Handles OAuth redirect callbacks on web (Google, etc.).
+ *
+ * CRITICAL for web OAuth:
+ * - Clerk redirects back to redirectUrl with params in URL (query or hash)
+ * - handleRedirectCallback must run to create the session in Clerk
+ * - tokenCache: native = SecureStore; web = undefined (Clerk uses default cookies)
  */
 import React, { ReactNode, useEffect, useRef } from "react";
 import { Platform } from "react-native";
@@ -11,7 +16,6 @@ import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { convex } from "../lib/convex";
 
-// Get Clerk publishable key from environment
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 if (!publishableKey) {
@@ -24,25 +28,67 @@ interface ConvexClerkProviderProps {
   children: ReactNode;
 }
 
-/** Handles OAuth redirect callback on web — only when returning from OAuth (avoids redirect loop) */
+// ─────────────────────────────────────────────────────────────────────────────
+// OAuth callback URL param patterns (Clerk may use query or hash)
+// Broad match to avoid missing the callback — session won't be created otherwise
+// ─────────────────────────────────────────────────────────────────────────────
+function hasOAuthCallbackParams(): boolean {
+  if (typeof window === "undefined") return false;
+  const search = window.location.search;
+  const hash = window.location.hash;
+  const full = search + hash;
+  // Clerk: __clerk_status, __clerk_created_session, __clerk_ticket, rotating_token_nonce
+  // OAuth: code=, state= (when redirect passes through our domain)
+  const has =
+    /__clerk/i.test(full) ||
+    /rotating_token_nonce/.test(full) ||
+    /\bcode=/.test(full) ||
+    /\bstate=/.test(full);
+  if (has && __DEV__) {
+    console.log("[WebOAuthCallback] Detected OAuth params in URL, running handleRedirectCallback");
+  }
+  return has;
+}
+
+/**
+ * WebOAuthCallbackHandler
+ *
+ * Runs on web when the page loads. If the URL contains OAuth callback params
+ * (returning from Google sign-in redirect), calls handleRedirectCallback to
+ * complete the flow and create the session.
+ */
 function WebOAuthCallbackHandler({ children }: { children: ReactNode }) {
   const clerk = useClerk();
   const handled = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !clerk?.loaded || handled.current) return;
+    if (Platform.OS !== "web") return;
+    if (!clerk?.loaded) return;
+    if (handled.current) return;
 
-    // Only process when URL has OAuth callback params (returning from Google etc.)
-    const search = typeof window !== "undefined" ? window.location.search : "";
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    const hasOAuthParams = /__clerk|__clerk_ticket|code=|state=/.test(search + hash);
-    if (!hasOAuthParams) return;
+    if (!hasOAuthCallbackParams()) return;
 
     handled.current = true;
-    void clerk.handleRedirectCallback({
-      signInFallbackRedirectUrl: "/",
-      signUpFallbackRedirectUrl: "/",
-    }).catch(() => {});
+
+    const origin =
+      typeof window !== "undefined" ? window.location.origin + "/" : "/";
+
+    clerk
+      .handleRedirectCallback({
+        signInFallbackRedirectUrl: origin,
+        signUpFallbackRedirectUrl: origin,
+      })
+      .then(() => {
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.origin + "/");
+        }
+      })
+      .catch((err) => {
+        console.error("[WebOAuthCallbackHandler] handleRedirectCallback failed:", err);
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.origin + "/");
+        }
+      });
   }, [clerk?.loaded]);
 
   return <>{children}</>;

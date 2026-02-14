@@ -15,17 +15,23 @@ export function SettingsScreen() {
   const { user } = useUser();
 
   const handleSignOut = () => {
-    const doSignOut = () => {
-      void signOut();
+    const doSignOut = async () => {
+      try {
+        await signOut();
+        // Navigate to Auth screen after sign-out
+        navigation.reset({ index: 0, routes: [{ name: Routes.Auth }] });
+      } catch (err) {
+        console.error('[handleSignOut] signOut failed:', err);
+      }
     };
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined' && window.confirm('התנתקות — האם אתה בטוח?')) {
-        doSignOut();
+        void doSignOut();
       }
     } else {
       Alert.alert('התנתקות', 'האם אתה בטוח?', [
         { text: 'ביטול', style: 'cancel' },
-        { text: 'התנתק', style: 'destructive', onPress: doSignOut },
+        { text: 'התנתק', style: 'destructive', onPress: () => void doSignOut() },
       ]);
     }
   };
