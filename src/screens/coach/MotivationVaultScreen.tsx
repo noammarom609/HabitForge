@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useConvexAuth } from 'convex/react';
+import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -18,12 +18,14 @@ export function MotivationVaultScreen() {
   const [text, setText] = useState('');
   const [adding, setAdding] = useState(false);
 
-  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const { reminders, isLoading } = useMotivationReminders();
   const addReminder = useAddMotivationReminder();
   const deleteReminder = useDeleteMotivationReminder();
 
-  const canAdd = isAuthenticated && !authLoading;
+  // Use Clerk's isSignedIn for UI (prompt visibility) — it reflects sign-in
+  // state immediately. Convex isAuthenticated may lag behind due to JWT handshake.
+  const canAdd = authLoaded && isSignedIn;
 
   const onAdd = async () => {
     const trimmed = text.trim();

@@ -92,12 +92,14 @@ export function AuthScreen() {
   const isReady = authLoaded && signInLoaded && signUpLoaded;
   const strength = getPasswordStrength(password);
 
-  // Warm up browser for OAuth
+  // Warm up browser for OAuth (native only — not available on web)
   useEffect(() => {
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
+    if (Platform.OS !== 'web') {
+      void WebBrowser.warmUpAsync();
+      return () => {
+        void WebBrowser.coolDownAsync();
+      };
+    }
   }, []);
 
   // Redirect if already signed in
@@ -111,10 +113,22 @@ export function AuthScreen() {
     try {
       setLoading(true);
       setError('');
-      const redirectUrl =
-        Platform.OS === 'web' && typeof window !== 'undefined'
-          ? `${window.location.origin}/`
-          : Linking.createURL('/', { scheme: 'habitforge' });
+
+      // ── Web: full-page redirect (avoids COOP popup issues) ──
+      // Clerk JS (standardBrowser: true) auto-handles the callback on return.
+      if (Platform.OS === 'web' && signIn && typeof window !== 'undefined') {
+        const origin = window.location.origin;
+        await signIn.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: `${origin}/`,
+          redirectUrlComplete: `${origin}/`,
+        });
+        // Page will redirect — nothing runs after this
+        return;
+      }
+
+      // ── Native: popup via WebBrowser (works on iOS/Android) ──
+      const redirectUrl = Linking.createURL('/', { scheme: 'habitforge' });
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
         redirectUrl,
@@ -129,7 +143,7 @@ export function AuthScreen() {
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow, navigation]);
+  }, [signIn, startSSOFlow, navigation]);
 
   // Clear error on mode/input change
   useEffect(() => { setError(''); }, [mode, email, password, confirmPassword]);
@@ -413,6 +427,11 @@ export function AuthScreen() {
           </View>
         )}
 
+        {/* Clerk CAPTCHA placeholder (web only) — required for bot sign-up protection */}
+        {Platform.OS === 'web' && isSignUp && (
+          <View nativeID="clerk-captcha" style={styles.captchaPlaceholder} />
+        )}
+
         {/* Confirm password */}
         {isSignUp && (
           <>
@@ -534,6 +553,7 @@ const styles = StyleSheet.create({
 
   // Mismatch
   mismatchHint: { fontSize: 12, fontWeight: '500', marginTop: 6, marginLeft: 4 },
+  captchaPlaceholder: { minHeight: 78, marginVertical: 12 },
 
   // Hint
   hintText: { fontSize: 13, marginTop: 8, textAlign: 'center' },

@@ -2,7 +2,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
@@ -15,10 +15,16 @@ export function SettingsScreen() {
   const { user } = useUser();
 
   const handleSignOut = () => {
-    Alert.alert('התנתקות', 'האם אתה בטוח?', [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'התנתק', style: 'destructive', onPress: () => signOut() },
-    ]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('התנתקות — האם אתה בטוח?')) {
+        signOut();
+      }
+    } else {
+      Alert.alert('התנתקות', 'האם אתה בטוח?', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'התנתק', style: 'destructive', onPress: () => signOut() },
+      ]);
+    }
   };
 
   return (

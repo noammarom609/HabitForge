@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
-import { useConvexAuth } from 'convex/react';
+import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
@@ -26,7 +26,7 @@ export function WeeklyReviewWizardScreen() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const existing = useWeeklyReview();
   const saveReview = useSaveWeeklyReview();
   const initialized = useRef(false);
@@ -48,7 +48,7 @@ export function WeeklyReviewWizardScreen() {
 
   const onNext = async () => {
     if (isLast) {
-      if (!isAuthenticated) return;
+      if (!isSignedIn) return;
       setLoading(true);
       try {
         await saveReview({
@@ -65,7 +65,9 @@ export function WeeklyReviewWizardScreen() {
     setStep((s) => s + 1);
   };
 
-  const canSave = isAuthenticated && !authLoading;
+  // Use Clerk's isSignedIn for UI (prompt visibility) — it reflects sign-in
+  // state immediately. Convex isAuthenticated may lag behind due to JWT handshake.
+  const canSave = authLoaded && isSignedIn;
 
   const onBack = () => {
     if (step > 0) setStep((s) => s - 1);

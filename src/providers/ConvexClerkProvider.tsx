@@ -1,10 +1,10 @@
 /**
  * Combined Convex + Clerk Provider
- * 
+ *
  * This provider integrates Clerk authentication with Convex.
  * The Convex client receives authenticated tokens from Clerk.
  */
-import React, { useCallback, ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
@@ -27,13 +27,15 @@ interface ConvexClerkProviderProps {
  * Provider that wraps the app with Clerk and Convex authentication
  */
 export function ConvexClerkProvider({ children }: ConvexClerkProviderProps) {
+  const content = (
+    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      {children}
+    </ConvexProviderWithClerk>
+  );
+
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          {children}
-        </ConvexProviderWithClerk>
-      </ClerkLoaded>
+      <ClerkLoaded>{content}</ClerkLoaded>
     </ClerkProvider>
   );
 }

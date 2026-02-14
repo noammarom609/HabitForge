@@ -211,32 +211,54 @@ export function HabitFormScreen() {
     }
   };
 
+  const doArchive = async () => {
+    if (!habitId) return;
+    try {
+      if (useConvex && isConvexId) await archiveHabitMutation({ habitId: habitId as Id<'habits'> });
+      else { await archiveHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+      navigation.goBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('שגיאה', 'לא ניתן לארכב.');
+    }
+  };
+
+  const doDelete = async () => {
+    if (!habitId) return;
+    try {
+      if (useConvex && isConvexId) await deleteHabitMutation({ habitId: habitId as Id<'habits'> });
+      else { await deleteHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
+      navigation.goBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('שגיאה', 'לא ניתן למחוק.');
+    }
+  };
+
   const onArchive = () => {
-    Alert.alert('Archive Habit', 'Hide from home. Data is preserved.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Archive', style: 'destructive', onPress: async () => {
-          if (!habitId) return;
-          if (useConvex && isConvexId) await archiveHabitMutation({ habitId: habitId as Id<'habits'> });
-          else { await archiveHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
-          navigation.goBack();
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('ארכוב הרגל. ההרגל יוסתר מהמסך הראשי. להמשיך?')) {
+        doArchive();
+      }
+    } else {
+      Alert.alert('ארכוב הרגל', 'ההרגל יוסתר מהמסך הראשי. הנתונים נשמרים.', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'ארכב', style: 'destructive', onPress: doArchive },
+      ]);
+    }
   };
 
   const onDelete = () => {
-    Alert.alert('Delete Habit', 'Permanent. Cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          if (!habitId) return;
-          if (useConvex && isConvexId) await deleteHabitMutation({ habitId: habitId as Id<'habits'> });
-          else { await deleteHabitLegacy(habitId); await cancelHabitNotifications(habitId); }
-          navigation.goBack();
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('מחיקת הרגל. פעולה קבועה. להמשיך?')) {
+        doDelete();
+      }
+    } else {
+      Alert.alert('מחיקת הרגל', 'פעולה קבועה. לא ניתן לבטל.', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'מחק', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   // Loading
