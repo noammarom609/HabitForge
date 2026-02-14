@@ -31,10 +31,10 @@ export function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <Text style={[styles.screenTitle, { color: colors.text }]}>הגדרות</Text>
 
-      {isSignedIn && (
-        <>
-          <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>חשבון</Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>חשבון</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {isSignedIn ? (
+          <>
             <View style={[styles.row, styles.rowBorder, { borderColor: colors.border }]}>
               <View style={styles.rowLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: colors.primaryBg }]}>
@@ -59,9 +59,19 @@ export function SettingsScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
             </Pressable>
-          </View>
-        </>
-      )}
+          </>
+        ) : (
+          <Pressable style={styles.row} onPress={() => navigation.navigate(Routes.Auth)}>
+            <View style={styles.rowLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: colors.primaryBg }]}>
+                <Ionicons name="log-in-outline" size={18} color={colors.primary} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.primary }]}>התחבר</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </Pressable>
+        )}
+      </View>
 
       {isSignedIn && (
         <>
