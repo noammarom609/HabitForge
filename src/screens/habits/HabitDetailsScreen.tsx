@@ -13,7 +13,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Routes } from '../../app/routes';
+import { Routes } from '../../constants/routes';
 import { Id } from '../../../convex/_generated/dataModel';
 
 export function HabitDetailsScreen() {

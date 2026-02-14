@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
-import { Routes } from '../../app/routes';
+import { Routes } from '../../constants/routes';
 
 export function CoachHomeScreen() {
   const navigation = useNavigation<any>();

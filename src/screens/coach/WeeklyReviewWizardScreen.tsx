@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { useConvexAuth } from 'convex/react';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useSaveWeeklyReview, useWeeklyReview } from '../../hooks/useConvexHabits';
+import { Routes } from '../../constants/routes';
 
 const STEPS = [
   { id: 'worked', title: 'מה עבד השבוע?', placeholder: 'כתוב 1–3 דברים שהצליחו...' },
@@ -18,10 +21,12 @@ export function WeeklyReviewWizardScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const existing = useWeeklyReview();
   const saveReview = useSaveWeeklyReview();
   const initialized = useRef(false);
@@ -43,6 +48,7 @@ export function WeeklyReviewWizardScreen() {
 
   const onNext = async () => {
     if (isLast) {
+      if (!isAuthenticated) return;
       setLoading(true);
       try {
         await saveReview({
@@ -58,6 +64,8 @@ export function WeeklyReviewWizardScreen() {
     }
     setStep((s) => s + 1);
   };
+
+  const canSave = isAuthenticated && !authLoading;
 
   const onBack = () => {
     if (step > 0) setStep((s) => s - 1);
@@ -87,6 +95,19 @@ export function WeeklyReviewWizardScreen() {
         />
       </Card>
 
+      {!canSave && isLast && (
+        <Pressable
+          onPress={() => navigation.navigate(Routes.Auth)}
+          style={[styles.authPrompt, { borderColor: colors.primary }]}
+        >
+          <Text variant="body" style={{ color: colors.warning, marginBottom: 8, textAlign: 'center' }}>
+            יש להתחבר כדי לשמור את הסקירה
+          </Text>
+          <Text variant="caption" style={{ color: colors.primary, textAlign: 'center' }}>
+            לחץ להתחברות
+          </Text>
+        </Pressable>
+      )}
       <View style={styles.actions}>
         {step > 0 && (
           <Button title="חזור" onPress={onBack} variant="secondary" style={styles.backBtn} />
@@ -95,7 +116,7 @@ export function WeeklyReviewWizardScreen() {
           title={isLast ? (loading ? 'שומר...' : 'סיום ושמירה') : 'המשך'}
           onPress={onNext}
           style={styles.nextBtn}
-          disabled={loading}
+          disabled={loading || (isLast && !canSave)}
         />
       </View>
     </ScrollView>
@@ -116,4 +137,5 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 12 },
   backBtn: { flex: 1 },
   nextBtn: { flex: 1 },
+  authPrompt: { padding: 16, borderWidth: 1, borderRadius: 12, marginBottom: 16 },
 });

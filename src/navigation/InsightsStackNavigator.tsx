@@ -1,7 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { useTheme } from '../theme/ThemeContext';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import type { InsightsStackParamList } from './types';
 import { StatsScreen } from '../screens/StatsScreen';
 import { CalendarHeatmapScreen } from '../screens/insights/CalendarHeatmapScreen';

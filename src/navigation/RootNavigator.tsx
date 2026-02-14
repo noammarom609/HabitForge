@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import type { RootStackParamList } from './types';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HabitFormScreen } from '../screens/HabitFormScreen';

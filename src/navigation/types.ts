@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { Id } from '../../convex/_generated/dataModel';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 
 export type RootStackParamList = {
   [Routes.Onboarding]: undefined;

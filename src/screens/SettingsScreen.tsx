@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
 
 export function SettingsScreen() {

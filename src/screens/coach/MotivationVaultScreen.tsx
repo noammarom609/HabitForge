@@ -1,27 +1,33 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useConvexAuth } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAddMotivationReminder, useDeleteMotivationReminder, useMotivationReminders } from '../../hooks/useConvexHabits';
+import { Routes } from '../../constants/routes';
 
 export function MotivationVaultScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const [text, setText] = useState('');
   const [adding, setAdding] = useState(false);
 
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const { reminders, isLoading } = useMotivationReminders();
   const addReminder = useAddMotivationReminder();
   const deleteReminder = useDeleteMotivationReminder();
 
+  const canAdd = isAuthenticated && !authLoading;
+
   const onAdd = async () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || !canAdd) return;
     setAdding(true);
     try {
       await addReminder({ text: trimmed });
@@ -54,6 +60,19 @@ export function MotivationVaultScreen() {
         "למה זה חשוב לי" — שמור תזכורות אישיות שיעזרו ברגעים קשים
       </Text>
 
+      {!canAdd && (
+        <Pressable
+          onPress={() => navigation.navigate(Routes.Auth)}
+          style={[styles.authPrompt, { borderColor: colors.primary }]}
+        >
+          <Text variant="body" style={{ color: colors.warning, textAlign: 'center' }}>
+            יש להתחבר כדי להוסיף תזכורות
+          </Text>
+          <Text variant="caption" style={{ color: colors.primary, textAlign: 'center', marginTop: 4 }}>
+            לחץ להתחברות
+          </Text>
+        </Pressable>
+      )}
       <View style={[styles.addRow, { borderColor: colors.border }]}>
         <TextInput
           style={[styles.input, { color: colors.text, borderColor: colors.border }]}
@@ -63,9 +82,9 @@ export function MotivationVaultScreen() {
           onChangeText={setText}
         />
         <Pressable
-          style={[styles.addBtn, { backgroundColor: colors.primary }]}
+          style={[styles.addBtn, { backgroundColor: canAdd ? colors.primary : colors.border }]}
           onPress={onAdd}
-          disabled={!text.trim() || adding}
+          disabled={!text.trim() || adding || !canAdd}
         >
           <Ionicons name="add" size={24} color="#FFF" />
         </Pressable>
@@ -100,6 +119,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  authPrompt: { padding: 16, borderWidth: 1, borderRadius: 12, marginBottom: 16 },
   addRow: { flexDirection: 'row', gap: 12, marginBottom: 24, borderBottomWidth: 1, paddingBottom: 16 },
   input: { flex: 1, padding: 12, borderWidth: 1, borderRadius: 12, fontSize: 16 },
   addBtn: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

@@ -17,7 +17,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
 
 // Warm up browser for OAuth (improves UX on Android)

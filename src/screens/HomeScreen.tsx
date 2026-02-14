@@ -24,7 +24,7 @@ import {
 import { loadCompletions, loadHabits, toggleCompletion } from '../data/storage';
 import { calculateStreak, formatDate, getDayOfWeek } from '../data/streaks';
 import { Completion, Habit as LegacyHabit } from '../domain/types';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
 import { Id } from '../../convex/_generated/dataModel';
 

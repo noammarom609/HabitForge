@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingDone } from '../data/storage';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

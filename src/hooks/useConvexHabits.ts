@@ -54,6 +54,11 @@ export function useInsights() {
   return { data, isLoading: data === undefined };
 }
 
+export function useHeatmapData() {
+  const data = useQuery(api.habits.getHeatmapData);
+  return { completedDates: data?.completedDates ?? [], isLoading: data === undefined };
+}
+
 export function useIdentities() {
   const ids = useQuery(api.habits.getIdentities);
   return { identities: ids ?? [], isLoading: ids === undefined };

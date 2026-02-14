@@ -14,7 +14,7 @@ import {
 } from '../data/streaks';
 import { Completion, Habit } from '../domain/types';
 import { useInsights } from '../hooks/useConvexHabits';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import { useTheme } from '../theme/ThemeContext';
 
 export function StatsScreen() {

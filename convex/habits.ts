@@ -294,6 +294,30 @@ export const getHabitWithRecentEntries = query({
 });
 
 /**
+ * Heatmap data — dates with at least one habit completed (last 84 days)
+ */
+export const getHeatmapData = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await tryGetUser(ctx);
+    if (!user) return { completedDates: [] as string[] };
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 84);
+    const startStr = startDate.toISOString().split("T")[0];
+    const entries = await ctx.db
+      .query("habitEntries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .filter((q) => q.gte(q.field("date"), startStr))
+      .collect();
+    const completedDates = [...new Set(
+      entries.filter((e) => e.status === "done").map((e) => e.date)
+    )];
+    return { completedDates };
+  },
+});
+
+/**
  * Auth debug
  */
 export const getAuthDebug = query({

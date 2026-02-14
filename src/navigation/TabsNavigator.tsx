@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Platform } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { Routes } from '../app/routes';
+import { Routes } from '../constants/routes';
 import type { TabsParamList } from './types';
 import { TodayStackNavigator } from './TodayStackNavigator';
 import { HabitsStackNavigator } from './HabitsStackNavigator';

@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import { useAuth } from '@clerk/clerk-expo';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAllHabits, useHabits } from '../../hooks/useConvexHabits';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Routes } from '../../app/routes';
+import { Routes } from '../../constants/routes';
+import { loadHabits } from '../../data/storage';
 
 type TabType = 'active' | 'archive';
 
@@ -17,17 +19,51 @@ export function HabitsHomeScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<TabType>('active');
 
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const useConvex = authLoaded && isSignedIn;
+
   const { habits: activeHabits, isLoading: loadingActive } = useHabits();
   const { habits: allHabits, isLoading: loadingAll } = useAllHabits();
 
-  const habits = tab === 'active'
-    ? (activeHabits ?? [])
-    : (allHabits ?? []).filter((h) => !h.isActive);
-  const isLoading = tab === 'active' ? loadingActive : loadingAll;
+  const [legacyHabits, setLegacyHabits] = useState<Array<{ id: string; name: string; daysOfWeek: number[]; color?: string; icon?: string; isArchived: boolean }>>([]);
+  const [legacyLoading, setLegacyLoading] = useState(false);
+
+  const refreshLegacy = useCallback(async () => {
+    setLegacyLoading(true);
+    try {
+      const h = await loadHabits();
+      setLegacyHabits(h);
+    } finally {
+      setLegacyLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    if (authLoaded && !isSignedIn) refreshLegacy();
+  }, [authLoaded, isSignedIn, refreshLegacy]));
+
+  const habits = useConvex
+    ? (tab === 'active'
+        ? (activeHabits ?? [])
+        : (allHabits ?? []).filter((h) => !h.isActive))
+    : (tab === 'active'
+        ? legacyHabits.filter((h) => !h.isArchived)
+        : legacyHabits.filter((h) => h.isArchived));
+
+  const displayHabits = useConvex
+    ? habits.map((h) => ({ id: h._id, title: h.title, color: h.color, icon: h.icon, scheduleType: h.scheduleType, daysOfWeek: h.daysOfWeek }))
+    : habits.map((h) => ({ id: h.id, title: h.name, color: h.color, icon: h.icon, scheduleType: 'weekly' as const, daysOfWeek: h.daysOfWeek }));
+
+  const isLoading = useConvex ? (tab === 'active' ? loadingActive : loadingAll) : legacyLoading;
 
   const onAddHabit = () => navigation.navigate(Routes.HabitForm);
-  const onHabitPress = (habitId: string) =>
-    navigation.navigate(Routes.HabitDetails, { habitId });
+  const onHabitPress = (habitId: string) => {
+    if (useConvex) {
+      navigation.navigate(Routes.HabitDetails, { habitId });
+    } else {
+      navigation.navigate(Routes.HabitForm, { habitId });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -74,13 +110,13 @@ export function HabitsHomeScreen() {
         />
       ) : (
         <FlatList
-          data={habits}
-          keyExtractor={(item) => item._id}
+          data={displayHabits}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
           renderItem={({ item }) => (
             <Pressable
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => onHabitPress(item._id)}
+              onPress={() => onHabitPress(item.id)}
             >
               <View style={[styles.cardAccent, { backgroundColor: item.color || colors.primary }]} />
               <Text style={styles.cardIcon}>{item.icon || '🎯'}</Text>

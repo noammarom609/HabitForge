@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Card } from '../../components/ui/Card';
-import { Routes } from '../../app/routes';
+import { Routes } from '../../constants/routes';
 
 const INTEGRATIONS = [
   { id: 'calendar', icon: 'calendar', title: 'לוח שנה', desc: 'חלונות זמן אוטומטיים', route: Routes.CalendarHeatmap as const },
