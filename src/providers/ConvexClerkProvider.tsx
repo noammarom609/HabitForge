@@ -35,7 +35,7 @@ function WebOAuthCallbackHandler({ children }: { children: ReactNode }) {
     // Only process when URL has OAuth callback params (returning from Google etc.)
     const search = typeof window !== "undefined" ? window.location.search : "";
     const hash = typeof window !== "undefined" ? window.location.hash : "";
-    const hasOAuthParams = /__clerk|code=|state=/.test(search + hash);
+    const hasOAuthParams = /__clerk|__clerk_ticket|code=|state=/.test(search + hash);
     if (!hasOAuthParams) return;
 
     handled.current = true;

@@ -15,14 +15,17 @@ export function SettingsScreen() {
   const { user } = useUser();
 
   const handleSignOut = () => {
+    const doSignOut = () => {
+      void signOut();
+    };
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined' && window.confirm('התנתקות — האם אתה בטוח?')) {
-        signOut();
+        doSignOut();
       }
     } else {
       Alert.alert('התנתקות', 'האם אתה בטוח?', [
         { text: 'ביטול', style: 'cancel' },
-        { text: 'התנתק', style: 'destructive', onPress: () => signOut() },
+        { text: 'התנתק', style: 'destructive', onPress: doSignOut },
       ]);
     }
   };

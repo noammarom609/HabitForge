@@ -110,13 +110,14 @@ export function AuthScreen() {
   }, [isSignedIn, navigation]);
 
   const signInWithGoogle = useCallback(async () => {
+    if (!signIn) return;
     try {
       setLoading(true);
       setError('');
 
       // ── Web: full-page redirect (avoids COOP popup issues) ──
-      // Clerk JS (standardBrowser: true) auto-handles the callback on return.
-      if (Platform.OS === 'web' && signIn && typeof window !== 'undefined') {
+      // Callback handled by WebOAuthCallbackHandler when user returns.
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const origin = window.location.origin;
         await signIn.authenticateWithRedirect({
           strategy: 'oauth_google',
