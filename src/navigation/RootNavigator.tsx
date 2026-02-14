@@ -2,20 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
+import { Routes } from '../app/routes';
+import type { RootStackParamList } from './types';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HabitFormScreen } from '../screens/HabitFormScreen';
-import { IdentityScreen } from '../screens/IdentityScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { useTheme } from '../theme/ThemeContext';
 import { TabsNavigator } from './TabsNavigator';
-
-export type RootStackParamList = {
-  Onboarding: undefined;
-  Auth: undefined;
-  Tabs: undefined;
-  HabitForm: { habitId?: string } | undefined;
-  Identity: undefined;
-};
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -46,7 +39,7 @@ export function RootNavigator() {
 
   return (
     <Stack.Navigator
-      initialRouteName={showOnboarding ? 'Onboarding' : 'Tabs'}
+      initialRouteName={showOnboarding ? Routes.Onboarding : Routes.AppTabs}
       screenOptions={{
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
@@ -55,33 +48,25 @@ export function RootNavigator() {
       }}
     >
       <Stack.Screen
-        name="Onboarding"
+        name={Routes.Onboarding}
         component={OnboardingScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Auth"
+        name={Routes.Auth}
         component={AuthScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Tabs"
+        name={Routes.AppTabs}
         component={TabsNavigator}
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="HabitForm"
+        name={Routes.HabitForm}
         component={HabitFormScreen}
         options={{
-          title: 'New Habit',
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen
-        name="Identity"
-        component={IdentityScreen}
-        options={{
-          title: 'My Identity',
+          title: 'הרגל חדש',
           presentation: 'modal',
         }}
       />

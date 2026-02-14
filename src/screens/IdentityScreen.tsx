@@ -29,7 +29,7 @@ export function IdentityScreen() {
 
   const onCreate = async () => {
     const trimmed = label.trim();
-    if (!trimmed) return Alert.alert('Missing label', 'Describe who you want to be.');
+    if (!trimmed) return Alert.alert('חסר תיאור', 'תאר מי אתה רוצה להיות.');
     await createIdentity({ label: trimmed, icon });
     setLabel('');
     setIcon(IDENTITY_ICONS[0]);
@@ -37,9 +37,9 @@ export function IdentityScreen() {
   };
 
   const onDelete = (id: string, name: string) => {
-    Alert.alert('Remove Identity', `Remove "${name}"? Habits will be unlinked.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteIdentity({ identityId: id as any }) },
+    Alert.alert('הסר זהות', `להסיר "${name}"? הרגלים יתנתקו.`, [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'הסר', style: 'destructive', onPress: () => deleteIdentity({ identityId: id as any }) },
     ]);
   };
 
@@ -52,10 +52,10 @@ export function IdentityScreen() {
         ListHeaderComponent={
           <View style={styles.headerSection}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
-              Who are you becoming?
+              מי אתה הופך להיות?
             </Text>
             <Text style={[styles.headerDesc, { color: colors.textSecondary }]}>
-              Define 1-3 identities. Each habit becomes a vote for that identity.
+              הגדר 1–3 זהויות. כל הרגל הוא קול לזהות הזו.
             </Text>
           </View>
         }
@@ -75,7 +75,7 @@ export function IdentityScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🪞</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No identities yet. Start with one.
+                אין עדיין זהויות. התחל באחת.
               </Text>
             </View>
           ) : null
@@ -85,10 +85,10 @@ export function IdentityScreen() {
             {showForm ? (
               <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
-                  I AM A PERSON WHO...
+                  אני אדם ש...
                 </Text>
                 <TextInput
-                  placeholder="e.g., exercises every day"
+                  placeholder="למשל: מתאמן כל יום"
                   placeholderTextColor={colors.placeholder}
                   value={label}
                   onChangeText={setLabel}
@@ -96,7 +96,7 @@ export function IdentityScreen() {
                   autoFocus
                 />
 
-                <Text style={[styles.formLabel, { color: colors.textSecondary, marginTop: 14 }]}>ICON</Text>
+                <Text style={[styles.formLabel, { color: colors.textSecondary, marginTop: 14 }]}>אייקון</Text>
                 <View style={styles.iconRow}>
                   {IDENTITY_ICONS.map((ic) => (
                     <Pressable
@@ -117,10 +117,10 @@ export function IdentityScreen() {
 
                 <View style={styles.formActions}>
                   <Pressable style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowForm(false)}>
-                    <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
+                    <Text style={[styles.cancelText, { color: colors.text }]}>ביטול</Text>
                   </Pressable>
                   <Pressable style={[styles.createBtn, { backgroundColor: colors.primary }]} onPress={onCreate}>
-                    <Text style={styles.createText}>Add Identity</Text>
+                    <Text style={styles.createText}>הוסף זהות</Text>
                   </Pressable>
                 </View>
               </View>
@@ -130,13 +130,13 @@ export function IdentityScreen() {
                 onPress={() => setShowForm(true)}
               >
                 <Ionicons name="add-circle" size={20} color={colors.primary} />
-                <Text style={[styles.addBtnText, { color: colors.primary }]}>Add Identity</Text>
+                <Text style={[styles.addBtnText, { color: colors.primary }]}>הוסף זהות</Text>
               </Pressable>
             )}
 
             {identities.length >= 3 && !showForm && (
               <Text style={[styles.limitNote, { color: colors.textTertiary }]}>
-                3 identities is a good maximum. Focus creates clarity.
+                3 זהויות זה מקסימום טוב. מיקוד יוצר בהירות.
               </Text>
             )}
           </>

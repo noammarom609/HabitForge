@@ -1,8 +1,10 @@
 import { useAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useSSO } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -15,10 +17,11 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RootStackParamList } from '../navigation/RootNavigator';
+import { Routes } from '../app/routes';
 import { useTheme } from '../theme/ThemeContext';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+// Warm up browser for OAuth (improves UX on Android)
+WebBrowser.maybeCompleteAuthSession();
 type AuthMode = 'signin' | 'signup';
 
 // ─── Password strength calculator ───
@@ -66,13 +69,14 @@ function ErrorBanner({ message, colors }: { message: string; colors: any }) {
 // ═══════════════════════════════════════════
 
 export function AuthScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [mode, setMode] = useState<AuthMode>('signup');
   const [email, setEmail] = useState('');
@@ -88,12 +92,44 @@ export function AuthScreen() {
   const isReady = authLoaded && signInLoaded && signUpLoaded;
   const strength = getPasswordStrength(password);
 
+  // Warm up browser for OAuth
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+
   // Redirect if already signed in
   useEffect(() => {
     if (isSignedIn) {
-      navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+      navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
     }
   }, [isSignedIn, navigation]);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const redirectUrl =
+        Platform.OS === 'web' && typeof window !== 'undefined'
+          ? `${window.location.origin}/`
+          : Linking.createURL('/', { scheme: 'habitforge' });
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl,
+      });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
+      }
+    } catch (err: any) {
+      const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || 'ההתחברות עם Google נכשלה. נסה שוב.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [startSSOFlow, navigation]);
 
   // Clear error on mode/input change
   useEffect(() => { setError(''); }, [mode, email, password, confirmPassword]);
@@ -106,7 +142,7 @@ export function AuthScreen() {
       const result = await signIn.create({ identifier: email, password });
       if (result.status === 'complete') {
         await setSignInActive({ session: result.createdSessionId });
-        navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+        navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
       } else {
         setError('Additional verification required.');
       }
@@ -143,7 +179,7 @@ export function AuthScreen() {
       const result = await signUp.attemptEmailAddressVerification({ code: verificationCode });
       if (result.status === 'complete') {
         await setSignUpActive({ session: result.createdSessionId });
-        navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+        navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
       } else {
         setVerifyError('Additional steps required.');
       }
@@ -178,7 +214,7 @@ export function AuthScreen() {
   };
 
   const onSkip = () => {
-    navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+    navigation.reset({ index: 0, routes: [{ name: Routes.AppTabs }] });
   };
 
   if (!isReady) {
@@ -292,6 +328,31 @@ export function AuthScreen() {
 
         {/* Error */}
         <ErrorBanner message={error} colors={colors} />
+
+        {/* Google Sign In */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.googleBtn,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              opacity: loading ? 0.6 : pressed ? 0.9 : 1,
+            },
+          ]}
+          onPress={signInWithGoogle}
+          disabled={loading}
+        >
+          <Ionicons name="logo-google" size={22} color="#4285F4" />
+          <Text style={[styles.googleBtnText, { color: colors.text }]}>
+            {loading ? 'מתחבר...' : 'התחבר עם Google'}
+          </Text>
+        </Pressable>
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.dividerText, { color: colors.textTertiary }]}>או</Text>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        </View>
 
         {/* Email */}
         <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
@@ -438,6 +499,26 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 },
 
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  googleBtnText: { fontSize: 16, fontWeight: '600' },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  divider: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, fontWeight: '500' },
   label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.8, marginBottom: 8 },
   labelGap: { marginTop: 16 },
   input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },

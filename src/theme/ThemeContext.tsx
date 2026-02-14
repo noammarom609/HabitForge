@@ -1,18 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { darkColors, lightColors, ThemeColors } from './colors';
+import { spacing, radius, typography, motion } from './tokens';
 
-type ThemeContextType = {
+export type ThemeContextType = {
   isDark: boolean;
   colors: ThemeColors;
   toggleTheme: () => void;
+  spacing: typeof spacing;
+  radius: typeof radius;
+  typography: typeof typography;
+  motion: typeof motion;
 };
 
-const ThemeContext = createContext<ThemeContextType>({
-  isDark: false,
-  colors: lightColors,
-  toggleTheme: () => {},
-});
+const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const THEME_KEY = 'theme:isDark';
 
@@ -35,17 +36,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const colors = isDark ? darkColors : lightColors;
+  const value = useMemo<ThemeContextType>(() => ({
+    isDark,
+    colors: isDark ? darkColors : lightColors,
+    toggleTheme,
+    spacing,
+    radius,
+    typography,
+    motion,
+  }), [isDark]);
 
   if (!loaded) return null;
 
   return (
-    <ThemeContext.Provider value={{ isDark, colors, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme() {
-  return useContext(ThemeContext);
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
 }

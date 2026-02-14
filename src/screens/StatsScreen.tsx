@@ -1,7 +1,6 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,15 +14,13 @@ import {
 } from '../data/streaks';
 import { Completion, Habit } from '../domain/types';
 import { useInsights } from '../hooks/useConvexHabits';
-import { RootStackParamList } from '../navigation/RootNavigator';
+import { Routes } from '../app/routes';
 import { useTheme } from '../theme/ThemeContext';
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function StatsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
 
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const useConvex = authLoaded && isSignedIn;
@@ -61,9 +58,9 @@ export function StatsScreen() {
     return (
       <View style={[styles.container, styles.emptyContainer, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Text style={styles.emptyEmoji}>📊</Text>
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>No insights yet</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>אין עדיין תובנות</Text>
         <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Create habits and start tracking to see your patterns here
+          צור הרגלים והתחל לעקוב כדי לראות את הדפוסים שלך כאן
         </Text>
       </View>
     );
@@ -91,17 +88,17 @@ export function StatsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
     >
-      <Text style={[styles.screenTitle, { color: colors.text }]}>Insights</Text>
+      <Text style={[styles.screenTitle, { color: colors.text }]}>תובנות</Text>
 
       {/* ──── Improvement Tip ──── */}
       {useConvex && insights?.improvementTip && (
         <Pressable
           style={[styles.tipCard, { backgroundColor: colors.primaryBg, borderColor: colors.primary + '30' }]}
-          onPress={() => navigation.navigate('HabitForm')}
+          onPress={() => navigation.navigate(Routes.HabitForm)}
         >
           <Ionicons name="bulb" size={20} color={colors.primary} />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.tipLabel, { color: colors.textTertiary }]}>This week's focus</Text>
+            <Text style={[styles.tipLabel, { color: colors.textTertiary }]}>מיקוד השבוע</Text>
             <Text style={[styles.tipText, { color: colors.text }]}>{insights.improvementTip}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
@@ -110,7 +107,7 @@ export function StatsScreen() {
 
       {/* ──── Weekly Chart ──── */}
       <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>This Week</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>השבוע</Text>
         <View style={styles.chart}>
           {weeklyDataArr.map((d, i) => {
             const rate = d.total > 0 ? d.completed / d.total : 0;
@@ -136,7 +133,7 @@ export function StatsScreen() {
           })}
         </View>
         <View style={[styles.weeklyBadge, { backgroundColor: colors.primaryBg }]}>
-          <Text style={[styles.weeklyBadgeLabel, { color: colors.textSecondary }]}>Weekly Completion Rate</Text>
+          <Text style={[styles.weeklyBadgeLabel, { color: colors.textSecondary }]}>אחוז השלמה שבועי</Text>
           <Text style={[styles.weeklyBadgeValue, { color: colors.primary }]}>{weeklyRate}%</Text>
         </View>
       </View>
@@ -144,17 +141,17 @@ export function StatsScreen() {
       {/* ──── Pattern Insights (Convex only) ──── */}
       {useConvex && (
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Patterns</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>הדפוסים שלך</Text>
 
           <View style={styles.patternsGrid}>
             <View style={[styles.patternCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <Text style={styles.patternEmoji}>💪</Text>
-              <Text style={[styles.patternLabel, { color: colors.textTertiary }]}>Strongest Day</Text>
+              <Text style={[styles.patternLabel, { color: colors.textTertiary }]}>היום החזק</Text>
               <Text style={[styles.patternValue, { color: colors.text }]}>{insights?.bestDay ?? '—'}</Text>
             </View>
             <View style={[styles.patternCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <Text style={styles.patternEmoji}>🎯</Text>
-              <Text style={[styles.patternLabel, { color: colors.textTertiary }]}>Weakest Day</Text>
+              <Text style={[styles.patternLabel, { color: colors.textTertiary }]}>היום החלש</Text>
               <Text style={[styles.patternValue, { color: colors.text }]}>{insights?.worstDay ?? '—'}</Text>
             </View>
           </View>
@@ -162,9 +159,9 @@ export function StatsScreen() {
           {/* Anchor habits */}
           {(insights?.anchorHabits?.length ?? 0) > 0 && (
             <View style={[styles.anchorCard, { backgroundColor: colors.successBg, borderColor: colors.success + '30' }]}>
-              <Text style={[styles.anchorTitle, { color: colors.success }]}>Anchor Habits</Text>
+              <Text style={[styles.anchorTitle, { color: colors.success }]}>הרגלי עוגן</Text>
               <Text style={[styles.anchorDesc, { color: colors.textSecondary }]}>
-                These habits pull others along when you complete them:
+                הרגלים אלה מושכים אחרים כשאתה משלים אותם:
               </Text>
               {insights?.anchorHabits?.map((ahId) => {
                 const h = insights.perHabit.find((p) => p.habitId === ahId);
@@ -182,7 +179,7 @@ export function StatsScreen() {
 
       {/* ──── Per-Habit Stats ──── */}
       <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Last 30 Days</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>30 הימים האחרונים</Text>
         {perHabitData.map((habit) => (
           <View
             key={habit.habitId}
@@ -197,15 +194,15 @@ export function StatsScreen() {
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
                 <Text style={[styles.statNum, { color: colors.primary }]}>{habit.consistency30}%</Text>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Consistency</Text>
+                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>עקביות</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={[styles.statNum, { color: colors.warning }]}>{habit.current}</Text>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Streak</Text>
+                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>רצף</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={[styles.statNum, { color: colors.success }]}>{habit.longest}</Text>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Best</Text>
+                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>הכי טוב</Text>
               </View>
             </View>
             {/* Consistency bar */}
@@ -227,7 +224,7 @@ export function StatsScreen() {
       {/* Note: streak is not sacred */}
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-          Consistency Score matters more than streaks.{'\n'}Missing one day doesn't erase your progress.
+          ציון עקביות חשוב יותר מרצפים.{'\n'}דילוג על יום אחד לא מוחק את ההתקדמות שלך.
         </Text>
       </View>
     </ScrollView>

@@ -1,5 +1,4 @@
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import {
     Dimensions,
@@ -13,41 +12,39 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markOnboardingDone } from '../data/storage';
-import { RootStackParamList } from '../navigation/RootNavigator';
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+import { Routes } from '../app/routes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const slides = [
   {
     icon: '📋',
-    title: 'Track Your Habits',
+    title: 'עקוב אחרי ההרגלים שלך',
     subtitle:
-      'Create custom habits and track them daily.\nSet reminders so you never miss a day.',
+      'צור הרגלים מותאמים ועקוב אחריהם יומית.\nהגדר תזכורות כדי לא לפספס יום.',
   },
   {
     icon: '🔥',
-    title: 'Build Streaks',
+    title: 'בנה רצפים',
     subtitle:
-      'Stay consistent and build streaks.\nSee how many days in a row you can keep going.',
+      'הישאר עקבי ובנה רצפים.\nראה כמה ימים ברצף אתה יכול להמשיך.',
   },
   {
     icon: '📊',
-    title: 'See Your Progress',
+    title: 'ראה את ההתקדמות שלך',
     subtitle:
-      'View weekly and monthly statistics.\nUnderstand your patterns and improve.',
+      'צפה בסטטיסטיקות שבועיות וחודשיות.\nהבן את הדפוסים שלך ושפר.',
   },
 ];
 
 export function OnboardingScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const onDone = async () => {
     await markOnboardingDone();
-    navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+    navigation.reset({ index: 0, routes: [{ name: Routes.Auth }] });
   };
 
   const onNext = () => {
@@ -116,7 +113,7 @@ export function OnboardingScreen() {
           onPress={onNext}
         >
           <Text style={styles.buttonText}>
-            {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+            {currentIndex === slides.length - 1 ? 'התחל' : 'הבא'}
           </Text>
         </Pressable>
 
@@ -128,7 +125,7 @@ export function OnboardingScreen() {
               pressed && styles.skipPressed,
             ]}
           >
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={styles.skipText}>דלג</Text>
           </Pressable>
         )}
       </View>

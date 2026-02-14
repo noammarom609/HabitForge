@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,11 +24,9 @@ import {
 import { loadCompletions, loadHabits, toggleCompletion } from '../data/storage';
 import { calculateStreak, formatDate, getDayOfWeek } from '../data/streaks';
 import { Completion, Habit as LegacyHabit } from '../domain/types';
-import { RootStackParamList } from '../navigation/RootNavigator';
+import { Routes } from '../app/routes';
 import { useTheme } from '../theme/ThemeContext';
 import { Id } from '../../convex/_generated/dataModel';
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Undo Toast ───
 function UndoToast({
@@ -69,11 +66,11 @@ function UndoToast({
       <View style={styles.undoContent}>
         <Ionicons name="checkmark-circle" size={20} color={colors.success} />
         <Text style={[styles.undoText, { color: colors.text }]} numberOfLines={1}>
-          {habitName} completed
+          {habitName} בוצע
         </Text>
       </View>
       <Pressable onPress={onUndo} style={[styles.undoBtn, { backgroundColor: colors.primaryBg }]}>
-        <Text style={[styles.undoBtnText, { color: colors.primary }]}>Undo</Text>
+        <Text style={[styles.undoBtnText, { color: colors.primary }]}>בטל</Text>
       </Pressable>
     </Animated.View>
   );
@@ -84,7 +81,7 @@ function UndoToast({
 // ═══════════════════════════════════════════
 
 export function HomeScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -241,7 +238,7 @@ export function HomeScreen() {
               </Text>
               {item.minimumAction && !done && (
                 <Text style={[styles.microAction, { color: colors.textTertiary }]}>
-                  Min: {item.minimumAction}
+                  מינימום: {item.minimumAction}
                 </Text>
               )}
               {item.streak > 0 && (
@@ -282,28 +279,28 @@ export function HomeScreen() {
             <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
               {item.cue && (
                 <View style={styles.blueprintRow}>
-                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>Trigger</Text>
+                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>טריגר</Text>
                   <Text style={[styles.blueprintValue, { color: colors.textSecondary }]}>{item.cue}</Text>
                 </View>
               )}
               {item.minimumAction && (
                 <View style={styles.blueprintRow}>
-                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>30-sec version</Text>
+                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>גרסת 30 שניות</Text>
                   <Text style={[styles.blueprintValue, { color: colors.textSecondary }]}>{item.minimumAction}</Text>
                 </View>
               )}
               {item.reward && (
                 <View style={styles.blueprintRow}>
-                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>Reward</Text>
+                  <Text style={[styles.blueprintLabel, { color: colors.textTertiary }]}>תגמול</Text>
                   <Text style={[styles.blueprintValue, { color: colors.textSecondary }]}>{item.reward}</Text>
                 </View>
               )}
               <Pressable
                 style={[styles.editLink]}
-                onPress={() => navigation.navigate('HabitForm', { habitId: item.id })}
+                onPress={() => navigation.navigate(Routes.HabitForm, { habitId: item.id })}
               >
                 <Ionicons name="pencil" size={14} color={colors.primary} />
-                <Text style={[styles.editLinkText, { color: colors.primary }]}>Edit Habit</Text>
+                <Text style={[styles.editLinkText, { color: colors.primary }]}>ערוך הרגל</Text>
               </Pressable>
             </View>
           )}
@@ -327,11 +324,11 @@ export function HomeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>{dateStr}</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Today</Text>
+          <Text style={[styles.title, { color: colors.text }]}>היום</Text>
         </View>
         <Pressable
           style={[styles.addBtn, { backgroundColor: colors.primary }]}
-          onPress={() => navigation.navigate('HabitForm')}
+          onPress={() => navigation.navigate(Routes.HabitForm)}
         >
           <Ionicons name="add" size={28} color="#FFF" />
         </Pressable>
@@ -349,7 +346,7 @@ export function HomeScreen() {
             {activeIdentity && useConvex && (
               <View style={[styles.identityBanner, { backgroundColor: colors.primaryBg }]}>
                 <Text style={[styles.identityText, { color: colors.primary }]}>
-                  Today you are becoming: <Text style={styles.identityBold}>{activeIdentity.label}</Text>
+                  היום אתה הופך ל: <Text style={styles.identityBold}>{activeIdentity.label}</Text>
                 </Text>
               </View>
             )}
@@ -375,9 +372,9 @@ export function HomeScreen() {
               >
                 <Ionicons name="arrow-redo" size={20} color={colors.warning} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.recoveryTitle, { color: colors.text }]}>Back on track</Text>
+                  <Text style={[styles.recoveryTitle, { color: colors.text }]}>חזרה למסלול</Text>
                   <Text style={[styles.recoverySubtitle, { color: colors.textSecondary }]}>
-                    Just do one. Start with {habits[0]?.name ?? 'your first habit'}.
+                    עשה אחד. התחל עם {habits[0]?.name ?? 'ההרגל הראשון שלך'}.
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
@@ -390,8 +387,8 @@ export function HomeScreen() {
                 <View style={styles.summaryTop}>
                   <Text style={[styles.summaryTitle, { color: colors.text }]}>
                     {completedCount === totalCount
-                      ? '🎉 All done for today!'
-                      : `${completedCount} of ${totalCount} completed`}
+                      ? '🎉 הכל הושלם להיום!'
+                      : `${completedCount} מתוך ${totalCount} הושלמו`}
                   </Text>
                   <Text style={[styles.summaryPercent, { color: completedCount === totalCount ? colors.success : colors.primary }]}>
                     {Math.round(progress * 100)}%
@@ -415,16 +412,16 @@ export function HomeScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🌱</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Start building your identity</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>התחל לבנות את הזהות שלך</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Every habit is a vote for who you want to become.{'\n'}Tap + to create your first one.
+              כל הרגל הוא קול למי שאתה רוצה להיות.{'\n'}לחץ + ליצירת ההרגל הראשון.
             </Text>
             {__DEV__ && isSignedIn && (
               <Pressable
                 style={[styles.seedBtn, { backgroundColor: colors.primary }]}
                 onPress={() => seedMutation({})}
               >
-                <Text style={styles.seedBtnText}>Seed Sample Habits</Text>
+                <Text style={styles.seedBtnText}>טען הרגלים לדוגמה</Text>
               </Pressable>
             )}
           </View>

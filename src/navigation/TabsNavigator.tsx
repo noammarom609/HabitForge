@@ -2,16 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Platform } from 'react-native';
-import { HomeScreen } from '../screens/HomeScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
-import { StatsScreen } from '../screens/StatsScreen';
 import { useTheme } from '../theme/ThemeContext';
-
-export type TabsParamList = {
-  Home: undefined;
-  Stats: undefined;
-  Settings: undefined;
-};
+import { Routes } from '../app/routes';
+import type { TabsParamList } from './types';
+import { TodayStackNavigator } from './TodayStackNavigator';
+import { HabitsStackNavigator } from './HabitsStackNavigator';
+import { CoachStackNavigator } from './CoachStackNavigator';
+import { InsightsStackNavigator } from './InsightsStackNavigator';
+import { SettingsStackNavigator } from './SettingsStackNavigator';
 
 const Tab = createBottomTabNavigator<TabsParamList>();
 
@@ -38,30 +36,50 @@ export function TabsNavigator() {
       }}
     >
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name={Routes.TodayTab}
+        component={TodayStackNavigator}
         options={{
-          tabBarLabel: 'Today',
+          tabBarLabel: 'היום',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="today" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
+        name={Routes.HabitsTab}
+        component={HabitsStackNavigator}
         options={{
-          tabBarLabel: 'Stats',
+          tabBarLabel: 'הרגלים',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name={Routes.CoachTab}
+        component={CoachStackNavigator}
+        options={{
+          tabBarLabel: 'מאמן',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bulb" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name={Routes.InsightsTab}
+        component={InsightsStackNavigator}
+        options={{
+          tabBarLabel: 'תובנות',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
+        name={Routes.SettingsTab}
+        component={SettingsStackNavigator}
         options={{
-          tabBarLabel: 'Settings',
+          tabBarLabel: 'הגדרות',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),
