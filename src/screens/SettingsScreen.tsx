@@ -11,7 +11,7 @@ export function SettingsScreen() {
   const { isDark, colors, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { isSignedIn, signOut } = useAuth();
+  const { isSignedIn, isLoaded: authLoaded, signOut } = useAuth();
   const { user } = useUser();
 
   const handleSignOut = () => {
@@ -33,7 +33,11 @@ export function SettingsScreen() {
 
       <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>חשבון</Text>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        {isSignedIn ? (
+        {!authLoaded ? (
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.textTertiary }]}>טוען...</Text>
+          </View>
+        ) : isSignedIn ? (
           <>
             <View style={[styles.row, styles.rowBorder, { borderColor: colors.border }]}>
               <View style={styles.rowLeft}>
