@@ -4,11 +4,10 @@
  * This provider integrates Clerk authentication with Convex.
  * The Convex client receives authenticated tokens from Clerk.
  */
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider, ClerkLoaded, useAuth, useClerk } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
-import { AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { convex } from "../lib/convex";
 
@@ -25,10 +24,32 @@ interface ConvexClerkProviderProps {
   children: ReactNode;
 }
 
+/** Handles OAuth redirect callback on web — only when returning from OAuth (avoids redirect loop) */
+function WebOAuthCallbackHandler({ children }: { children: ReactNode }) {
+  const clerk = useClerk();
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !clerk?.loaded || handled.current) return;
+
+    // Only process when URL has OAuth callback params (returning from Google etc.)
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const hasOAuthParams = /__clerk|code=|state=/.test(search + hash);
+    if (!hasOAuthParams) return;
+
+    handled.current = true;
+    void clerk.handleRedirectCallback({
+      signInFallbackRedirectUrl: "/",
+      signUpFallbackRedirectUrl: "/",
+    }).catch(() => {});
+  }, [clerk?.loaded]);
+
+  return <>{children}</>;
+}
+
 /**
  * Provider that wraps the app with Clerk and Convex authentication.
- * On web, wraps with AuthenticateWithRedirectCallback so OAuth redirect
- * (e.g. Google sign-in) completes and the session is set.
  */
 export function ConvexClerkProvider({ children }: ConvexClerkProviderProps) {
   const content = (
@@ -37,21 +58,16 @@ export function ConvexClerkProvider({ children }: ConvexClerkProviderProps) {
     </ConvexProviderWithClerk>
   );
 
-  const withOAuthCallback =
+  const withOAuthHandler =
     Platform.OS === "web" ? (
-      <AuthenticateWithRedirectCallback
-        signInFallbackRedirectUrl="/"
-        signUpFallbackRedirectUrl="/"
-      >
-        {content}
-      </AuthenticateWithRedirectCallback>
+      <WebOAuthCallbackHandler>{content}</WebOAuthCallbackHandler>
     ) : (
       content
     );
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>{withOAuthCallback}</ClerkLoaded>
+      <ClerkLoaded>{withOAuthHandler}</ClerkLoaded>
     </ClerkProvider>
   );
 }
